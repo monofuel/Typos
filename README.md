@@ -1,6 +1,8 @@
-# You can use this nim template to jump start your nim library or project.
+# Typos
 
-This template includes:
+An AI text editor using silky.
+
+This project includes:
 * MIT licence
 * src directory and a private common.nim
 * test directory

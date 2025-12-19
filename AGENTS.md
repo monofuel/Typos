@@ -1,13 +1,13 @@
-# {PROJECT_NAME}
+# Typos
 
-- {PROJECT_DESCRIPTION}
-- {PROJECT_FOCUS}
+- An AI text editor using silky
+- Building an intelligent text editing experience
 
 ## Dependencies
 
 - Nim >= 2.0.0
-- {PRIMARY_DEPENDENCY_DESCRIPTION}
-- {ADDITIONAL_DEPENDENCIES}
+- silky for UI rendering
+- Additional AI/ML libraries for text analysis
 
 ## Tests
 

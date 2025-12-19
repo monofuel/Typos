@@ -1,8 +1,8 @@
 version     = "0.0.0"
 author      = "Your name"
-description = "Description of your library"
+description = "An AI text editor using silky"
 license     = "MIT"
 
 srcDir = "src"
 
-requires "nim >= 2.0.0"
+requires "nim >= 2.0.0", "silky"
