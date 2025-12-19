@@ -1,1 +1,3 @@
-## Include an example on how to use your library
+## Example usage of Typos - AI Text Editor
+
+import ../src/Typos
