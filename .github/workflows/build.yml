@@ -14,6 +14,6 @@ jobs:
     #     key: ${{ runner.os }}-nimby-${{ hashFiles('Typos.nimble') }}
     #     restore-keys: |
     #       ${{ runner.os }}-nimby-
-    - run: nimby install -g Typos.nimble
+    - run: nimby install -g -V Typos.nimble
     - run: ls -la ~/.nimby/pkgs/
     - run: nim r tests/test.nim
