@@ -6,15 +6,5 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - uses: treeform/setup-nim-action@v5
-    # cache is giving me issues on gitea
-    # - uses: actions/cache@v3
-    #   with:
-    #     path: ~/.nimby
-    #     key: ${{ runner.os }}-nimby-${{ hashFiles('Typos.nimble') }}
-    #     restore-keys: |
-    #       ${{ runner.os }}-nimby-
-    - run: cd ../ && nimby install Typos/Typos.nimble
-    - run: ls -la ../
-    - run: ls -la ~/.nimby/pkgs/
-    - run: nim r tests/test.nim
+    - uses: treeform/setup-nim-action@v2
+    - run: nimble test -y
