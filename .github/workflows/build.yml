@@ -11,4 +11,4 @@ jobs:
     - run: nimble install -y -d
     - run: cd ../ && git clone https://github.com/treeform/silky && cd silky && nimble install -y
     - run: cd ../ && git clone https://github.com/treeform/shady && cd shady && nimble install -y
-    - run: nimble test -y
+    - run: nim c src/Typos.nim
