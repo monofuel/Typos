@@ -15,4 +15,5 @@ jobs:
     #     restore-keys: |
     #       ${{ runner.os }}-nimby-
     - run: nimby install -g Typos.nimble
+    - run: ls -la ~/.nimby/pkgs/
     - run: nim r tests/test.nim
