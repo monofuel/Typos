@@ -6,6 +6,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    # TODO switch to setup-nim-action@v5 and use nimby
     - uses: treeform/setup-nim-action@v2
+    - run: nimble install -y -d
     - run: cd ../ && git clone https://github.com/treeform/silky && cd silky && nimble install -y
+    - run: cd ../ && git clone https://github.com/treeform/shady && cd shady && nimble install -y
     - run: nimble test -y
