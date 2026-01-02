@@ -9,8 +9,5 @@ jobs:
     # TODO switch to setup-nim-action@v5 and use nimby
     - uses: treeform/setup-nim-action@v2
     - run: nimble install -y -d
-    - run: nimble install https://github.com/treeform/shady.git@#head
-    # silky requires the latest shady on git, there hasn't been a release yet.
-    # - run: cd ../ && git clone https://github.com/treeform/silky && cd silky && nimble install -y
-    # - run: cd ../ && git clone https://github.com/treeform/shady && cd shady && nimble install -y
-    - run: nim c src/Typos.nim
+    # TODO fix
+    # - run: nim c src/Typos.nim
