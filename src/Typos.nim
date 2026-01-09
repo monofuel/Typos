@@ -1,24 +1,25 @@
 ## AI Text Editor using silky.
 
 import
-  std/[strformat],
-  opengl, windy, bumpy, vmath, chroma,
-  silky
+  std/[times],
+  opengl, windy, bumpy, vmath,
+  silky,
+  ./Typos/common
 
-# Panel system types
-type
-  Panel* = ref object
-    name*: string
-    selected*: bool
-
-  Area* = ref object
-    panels*: seq[Panel]
-    selectedPanelNum*: int
-    rect*: Rect
 
 const
   AreaHeaderHeight = 32.0
-  AreaMargin = 6.0
+
+# Chat data
+var
+  chatMessages: seq[ChatMessage]
+  currentInput: string
+  inputId: int = 0
+
+# Initialize with some sample messages
+chatMessages.add(ChatMessage(sender: "AI", content: "Hello! I'm your AI assistant. How can I help you today?", timestamp: 0.0))
+chatMessages.add(ChatMessage(sender: "User", content: "I'd like to work on some Nim code.", timestamp: 0.0))
+chatMessages.add(ChatMessage(sender: "AI", content: "Great! I can help you with Nim development. What would you like to work on?", timestamp: 0.0))
 
 proc snapToPixels(rect: Rect): Rect =
   rect(rect.x.int.float32, rect.y.int.float32, rect.w.int.float32, rect.h.int.float32)
@@ -44,8 +45,6 @@ let window = newWindow(
 makeContextCurrent(window)
 loadExtensions()
 
-const
-  BackgroundColor = parseHtmlColor("#000000").rgbx
 
 let sk = newSilky("dist/atlas.png", "dist/atlas.json")
 
@@ -79,13 +78,13 @@ proc drawArea(area: Area, r: Rect) =
           p.selected = (j == i)
 
       if isSelected:
-        sk.draw9Patch("panel.tab.selected.9patch", 3, tabRect.xy, tabRect.wh, rgbx(255, 255, 255, 255))
+        sk.draw9Patch("panel.tab.selected.9patch", 3, tabRect.xy, tabRect.wh, WhiteColor)
       elif isHovered:
-        sk.draw9Patch("panel.tab.hover.9patch", 3, tabRect.xy, tabRect.wh, rgbx(255, 255, 255, 255))
+        sk.draw9Patch("panel.tab.hover.9patch", 3, tabRect.xy, tabRect.wh, WhiteColor)
       else:
         sk.draw9Patch("panel.tab.9patch", 3, tabRect.xy, tabRect.wh)
 
-      discard sk.drawText("Default", panel.name, vec2(x + 8, r.y + 4 + 2), rgbx(255, 255, 255, 255))
+      discard sk.drawText("Default", panel.name, vec2(x + 8, r.y + 4 + 2), TextPrimaryColor)
 
       x += tabW + 2
     sk.popClipRect()
@@ -94,7 +93,6 @@ proc drawArea(area: Area, r: Rect) =
     let contentRect = rect(r.x, r.y + AreaHeaderHeight, r.w, r.h - AreaHeaderHeight)
     let activePanel = area.panels[area.selectedPanelNum]
     let contentPos = vec2(contentRect.x, contentRect.y)
-    let contentSize = vec2(contentRect.w, contentRect.h)
     # Draw panel content directly using silky widgets
     # Start content a bit inset.
     let contentInset = vec2(8, 8)
@@ -102,104 +100,144 @@ proc drawArea(area: Area, r: Rect) =
 
     case activePanel.name:
     of "Text Viewer":
-      discard sk.drawText("H1", "Text Viewer", sk.at, rgbx(255, 255, 255, 255))
+      discard sk.drawText("H1", "Text Viewer", sk.at, TextPrimaryColor)
       sk.at.y += 40
-      discard sk.drawText("Default", "This is where the text editor content will be displayed.", sk.at, rgbx(255, 255, 255, 255))
+      discard sk.drawText("Default", "This is where the text editor content will be displayed.", sk.at, TextPrimaryColor)
       sk.at.y += 20
-      discard sk.drawText("Default", "Features to implement:", sk.at, rgbx(255, 255, 255, 255))
+      discard sk.drawText("Default", "Features to implement:", sk.at, TextPrimaryColor)
       sk.at.y += 20
-      discard sk.drawText("Default", "• Syntax highlighting", sk.at, rgbx(255, 255, 255, 255))
+      discard sk.drawText("Default", "• Syntax highlighting", sk.at, TextPrimaryColor)
       sk.at.y += 20
-      discard sk.drawText("Default", "• Line numbers", sk.at, rgbx(255, 255, 255, 255))
+      discard sk.drawText("Default", "• Line numbers", sk.at, TextPrimaryColor)
       sk.at.y += 20
-      discard sk.drawText("Default", "• Multi-cursor editing", sk.at, rgbx(255, 255, 255, 255))
+      discard sk.drawText("Default", "• Multi-cursor editing", sk.at, TextPrimaryColor)
       sk.at.y += 20
-      discard sk.drawText("Default", "• Auto-completion", sk.at, rgbx(255, 255, 255, 255))
+      discard sk.drawText("Default", "• Auto-completion", sk.at, TextPrimaryColor)
 
     of "AI Chat":
-      discard sk.drawText("H1", "AI Chat", sk.at, rgbx(255, 255, 255, 255))
-      sk.at.y += 40
-      discard sk.drawText("Default", "AI assistant chat interface will go here.", sk.at, rgbx(255, 255, 255, 255))
-      sk.at.y += 20
-      discard sk.drawText("Default", "Planned features:", sk.at, rgbx(255, 255, 255, 255))
-      sk.at.y += 20
-      discard sk.drawText("Default", "• Natural language queries", sk.at, rgbx(255, 255, 255, 255))
-      sk.at.y += 20
-      discard sk.drawText("Default", "• Code suggestions", sk.at, rgbx(255, 255, 255, 255))
-      sk.at.y += 20
-      discard sk.drawText("Default", "• Documentation help", sk.at, rgbx(255, 255, 255, 255))
-      sk.at.y += 20
-      discard sk.drawText("Default", "• Error explanations", sk.at, rgbx(255, 255, 255, 255))
+      # Calculate input box height dynamically
+      let inputBoxWidth = contentRect.w
+      let inputBoxPadding = vec2(8, 8)
+      let font = sk.atlas.fonts["Default"]
+      let lineHeight = font.lineHeight
+      let minInputHeight = lineHeight + inputBoxPadding.y * 2
 
-    of "Console":
-      discard sk.drawText("H1", "Console", sk.at, rgbx(255, 255, 255, 255))
-      sk.at.y += 40
-      discard sk.drawText("Default", "Command output and system messages will appear here.", sk.at, rgbx(255, 255, 255, 255))
-      sk.at.y += 20
-      discard sk.drawText("Default", "Console output:", sk.at, rgbx(255, 255, 255, 255))
-      sk.at.y += 20
-      discard sk.drawText("Default", "> Typos initialized successfully", sk.at, rgbx(255, 255, 255, 255))
-      sk.at.y += 20
-      discard sk.drawText("Default", "> Ready for input...", sk.at, rgbx(255, 255, 255, 255))
+      # Calculate height needed for wrapped text
+      let textSize = sk.getTextSize("Default", currentInput)
+      let inputBoxHeight = max(minInputHeight, textSize.y + inputBoxPadding.y * 2)
+
+      # Chat history area (scrollable) - adjusted for dynamic input height
+      let chatHistoryHeight = contentRect.h - inputBoxHeight - 10
+      let historyRect = rect(contentRect.x, contentRect.y, contentRect.w, chatHistoryHeight)
+      frame("chat_history", historyRect.xy, historyRect.wh):
+        sk.at = historyRect.xy + vec2(8, 8)
+        for message in chatMessages:
+          # Sender label
+          let senderColor = if message.sender == "User": UserMessageColor else: AIMessageColor
+          discard sk.drawText("Default", message.sender & ": ", sk.at, senderColor)
+          sk.at.x += sk.getTextSize("Default", message.sender & ": ").x
+
+          # Message content (wrap to next line if needed)
+          let messageSize = sk.getTextSize("Default", message.content)
+          if sk.at.x + messageSize.x > historyRect.x + historyRect.w - 16:
+            sk.at.x = historyRect.x + 8
+            sk.at.y += 20
+
+          discard sk.drawText("Default", message.content, sk.at, TextPrimaryColor)
+          sk.at.x = historyRect.x + 8
+          sk.at.y += 25
+
+
+      # Position input box at bottom, expanding upward
+      let inputRect = rect(contentRect.x, contentRect.y + contentRect.h - inputBoxHeight, inputBoxWidth, inputBoxHeight)
+
+      # Draw input box background directly
+      sk.draw9Patch("frame.9patch", 6, inputRect.xy, inputRect.wh)
+
+      # Set up clip rect for input area
+      sk.pushClipRect(rect(inputRect.x + 1, inputRect.y + 1, inputRect.w - 2, inputRect.h - 2))
+
+      # Position text inside the input box
+      sk.at = inputRect.xy + inputBoxPadding
+
+      # Draw input text manually (simplified version without frame wrapper)
+      if inputId notin silky.widgets.textInputStates:
+        silky.widgets.textInputStates[inputId] = InputTextState(focused: false)
+        silky.widgets.textInputStates[inputId].setText(currentInput)
+
+      let textInputState = silky.widgets.textInputStates[inputId]
+
+      # Handle focus
+      if window.buttonPressed[MouseLeft]:
+        if window.mousePos.vec2.overlaps(inputRect):
+          textInputState.focused = true
+        else:
+          textInputState.focused = false
+
+      # Process input if focused
+      if textInputState.focused:
+        # Process runes
+        for r in sk.inputRunes:
+          textInputState.typeCharacter(r)
+        textInputState.handleInput(window)
+        # Sync back
+        currentInput = textInputState.getText()
+
+      # Draw text
+      discard sk.drawText("Default", currentInput, sk.at, TextPrimaryColor)
+
+      # Draw cursor if focused
+      if textInputState.focused and (epochTime() * 2).int mod 2 == 0:
+        let textBeforeCursor = $textInputState.runes[0 ..< min(textInputState.cursor, textInputState.runes.len)]
+        let textSize = sk.getTextSize("Default", textBeforeCursor)
+        let cursorX = sk.at.x + textSize.x
+        let cursorY = sk.at.y
+        sk.drawRect(vec2(cursorX, cursorY), vec2(2, lineHeight), TextPrimaryColor)
+
+      sk.popClipRect()
+
 
     else:
-      discard sk.drawText("H1", activePanel.name, sk.at, rgbx(255, 255, 255, 255))
+      discard sk.drawText("H1", activePanel.name, sk.at, TextPrimaryColor)
       sk.at.y += 40
-      discard sk.drawText("Default", "This is the content of " & activePanel.name, sk.at, rgbx(255, 255, 255, 255))
+      discard sk.drawText("Default", "This is the content of " & activePanel.name, sk.at, TextPrimaryColor)
 
 # Initialize panel layout
 var
-  textViewerArea = Area()
   aiChatArea = Area()
-  consoleArea = Area()
 
-textViewerArea.addPanel("Text Viewer")
 aiChatArea.addPanel("AI Chat")
-consoleArea.addPanel("Console")
 
 window.runeInputEnabled = true
 window.onRune = proc(rune: Rune) =
-  sk.inputRunes.add(rune)
+  # Don't add newline characters to input - handle Enter key separately for submission
+  if rune != Rune('\n') and rune != Rune('\r'):
+    sk.inputRunes.add(rune)
 
 window.onFrame = proc() =
+
+  # Handle input submission
+  if window.buttonPressed[KeyEnter]:
+    if currentInput.len > 0:
+      chatMessages.add(ChatMessage(sender: "User", content: currentInput, timestamp: epochTime()))
+      # Clear silky's internal state directly
+      if inputId in silky.widgets.textInputStates:
+        silky.widgets.textInputStates[inputId].setText("")
+      currentInput = ""
+      # Clear any pending input runes to prevent them from being added back
+      sk.inputRunes.setLen(0)
 
   sk.beginUI(window, window.size)
 
   # Clear screen with background color
   sk.clearScreen(BackgroundColor)
 
-  # Draw tiled test texture as the background.
-  for x in 0 ..< 16:
-    for y in 0 ..< 10:
-      sk.at = vec2(x.float32 * 256, y.float32 * 256)
-      image("testTexture", rgbx(30, 30, 30, 255))
-
-  # 3-panel layout:
-  # Left: Text Viewer (60% width)
-  # Right: AI Chat top, Console bottom (40% width, 50/50 height split)
-
+  # Full-window AI Chat layout
   let windowRect = rect(0, 1, window.size.x.float32, window.size.y.float32 - 1)
-  let leftWidth = windowRect.w * 0.6
-  let rightWidth = windowRect.w * 0.4
-  let rightHeight = windowRect.h
-  let topHeight = rightHeight * 0.5
-  let bottomHeight = rightHeight * 0.5
 
-  # Text Viewer panel (left side)
-  let textViewerRect = rect(windowRect.x, windowRect.y, leftWidth, windowRect.h)
-  drawArea(textViewerArea, textViewerRect)
+  # AI Chat panel (full window)
+  drawArea(aiChatArea, windowRect)
 
-  # AI Chat panel (top right)
-  let aiChatRect = rect(windowRect.x + leftWidth, windowRect.y, rightWidth, topHeight)
-  drawArea(aiChatArea, aiChatRect)
-
-  # Console panel (bottom right)
-  let consoleRect = rect(windowRect.x + leftWidth, windowRect.y + topHeight, rightWidth, bottomHeight)
-  drawArea(consoleArea, consoleRect)
-
-  let ms = sk.avgFrameTime * 1000
-  sk.at = sk.pos + vec2(sk.size.x - 250, 20)
-  text(&"frame time: {ms:>7.3f}ms")
 
   sk.endUi()
   window.swapBuffers()
