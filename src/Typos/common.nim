@@ -44,3 +44,9 @@ const
   # UI element colors
   BorderColor* = parseHtmlColor("#30363d").rgbx  # Borders and highlights
   WhiteColor* = rgbx(255, 255, 255, 255)  # Pure white for accents
+
+  # LM Studio and model constants
+  LmStudioBaseUrl* = "http://10.11.2.14:1234/v1"
+  # NB. this model is currently the tq1 version, very fast but very basic.
+  Qwen3CoderModel* = "unsloth/qwen3-coder-30b-a3b-instruct"
+

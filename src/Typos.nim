@@ -1,10 +1,12 @@
 ## AI Text Editor using silky.
 
 import
-  std/[times],
+  std/[times, options],
   opengl, windy, bumpy, vmath,
   silky,
-  ./Typos/common
+  openai_leap,
+  ./Typos/common,
+  ./agents
 
 
 const
@@ -16,6 +18,12 @@ var
   currentInput: string
   inputId: int = 0
 
+# AI streaming state
+var
+  isAiResponding: bool = false
+  currentAiStream: Option[OpenAIStream]
+  currentAiMessage: ChatMessage
+
 # Initialize with some sample messages
 chatMessages.add(ChatMessage(sender: "AI", content: "Hello! I'm your AI assistant. How can I help you today?", timestamp: 0.0))
 chatMessages.add(ChatMessage(sender: "User", content: "I'd like to work on some Nim code.", timestamp: 0.0))
@@ -23,6 +31,25 @@ chatMessages.add(ChatMessage(sender: "AI", content: "Great! I can help you with 
 
 proc snapToPixels(rect: Rect): Rect =
   rect(rect.x.int.float32, rect.y.int.float32, rect.w.int.float32, rect.h.int.float32)
+
+# TODO we should probably use openai_leap message format internally?
+# we will always be using the openai api format for all providers.
+
+proc convertChatMessagesToOpenAi(chatMsgs: seq[ChatMessage]): seq[Message] =
+  ## Convert our ChatMessage format to openai_leap Message format
+  result = @[]
+  for msg in chatMsgs:
+    let role = if msg.sender == "User": "user" else: "assistant"
+    let openaiMsg = Message(
+      role: role,
+      content: option(@[
+        MessageContentPart(
+          `type`: "text",
+          text: option(msg.content)
+        )
+      ])
+    )
+    result.add(openaiMsg)
 
 proc addPanel*(area: Area, name: string) =
   let panel = Panel(name: name)
@@ -39,7 +66,7 @@ builder.write("dist/atlas.png", "dist/atlas.json")
 
 let window = newWindow(
   "Typos - AI Text Editor",
-  ivec2(800, 600),
+  ivec2(1200, 1200),
   vsync = false
 )
 makeContextCurrent(window)
@@ -151,8 +178,9 @@ proc drawArea(area: Area, r: Rect) =
       # Position input box at bottom, expanding upward
       let inputRect = rect(contentRect.x, contentRect.y + contentRect.h - inputBoxHeight, inputBoxWidth, inputBoxHeight)
 
-      # Draw input box background directly
-      sk.draw9Patch("frame.9patch", 6, inputRect.xy, inputRect.wh)
+      # Draw input box background directly - different color when AI is responding
+      let bgColor = if isAiResponding: BorderColor else: WhiteColor
+      sk.draw9Patch("frame.9patch", 6, inputRect.xy, inputRect.wh, bgColor)
 
       # Set up clip rect for input area
       sk.pushClipRect(rect(inputRect.x + 1, inputRect.y + 1, inputRect.w - 2, inputRect.h - 2))
@@ -183,8 +211,10 @@ proc drawArea(area: Area, r: Rect) =
         # Sync back
         currentInput = textInputState.getText()
 
-      # Draw text
-      discard sk.drawText("Default", currentInput, sk.at, TextPrimaryColor)
+      # Draw text - dimmed when AI is responding
+      let textColor = if isAiResponding: TextSecondaryColor else: TextPrimaryColor
+      let displayText = if isAiResponding: "AI is typing..." else: currentInput
+      discard sk.drawText("Default", displayText, sk.at, textColor)
 
       # Draw cursor if focused
       if textInputState.focused and (epochTime() * 2).int mod 2 == 0:
@@ -217,15 +247,35 @@ window.onRune = proc(rune: Rune) =
 window.onFrame = proc() =
 
   # Handle input submission
-  if window.buttonPressed[KeyEnter]:
+  if window.buttonPressed[KeyEnter] and not isAiResponding:
     if currentInput.len > 0:
       chatMessages.add(ChatMessage(sender: "User", content: currentInput, timestamp: epochTime()))
+
+      # Start AI streaming response
+      isAiResponding = true
+      currentAiMessage = ChatMessage(sender: "AI", content: "", timestamp: epochTime())
+
+      # Convert chat messages to openai_leap format and start streaming
+      let openaiMessages = convertChatMessagesToOpenAi(chatMessages)
+      currentAiStream = some(agents.qwen3_coder.sendMessage(openaiMessages))
+
       # Clear silky's internal state directly
       if inputId in silky.widgets.textInputStates:
         silky.widgets.textInputStates[inputId].setText("")
       currentInput = ""
       # Clear any pending input runes to prevent them from being added back
       sk.inputRunes.setLen(0)
+
+  # Process AI streaming response
+  if isAiResponding and currentAiStream.isSome:
+    let chunk = agents.qwen3_coder.getNextChunk(currentAiStream.get())
+    if chunk.isSome:
+      currentAiMessage.content &= chunk.get()
+    else:
+      # Stream is complete
+      chatMessages.add(currentAiMessage)
+      isAiResponding = false
+      currentAiStream = none(OpenAIStream)
 
   sk.beginUI(window, window.size)
 
