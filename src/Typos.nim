@@ -8,6 +8,8 @@ import
   ./Typos/common,
   ./agents
 
+from silky/widgets import frameStates
+
 
 const
   AreaHeaderHeight = 32.0
@@ -22,7 +24,7 @@ var
 var
   isAiResponding: bool = false
   currentAiStream: Option[OpenAIStream]
-  currentAiMessage: ChatMessage
+  shouldAutoScrollChat: bool = false
 
 # Initialize with some sample messages
 chatMessages.add(ChatMessage(sender: "AI", content: "Hello! I'm your AI assistant. How can I help you today?", timestamp: 0.0))
@@ -156,23 +158,64 @@ proc drawArea(area: Area, r: Rect) =
       # Chat history area (scrollable) - adjusted for dynamic input height
       let chatHistoryHeight = contentRect.h - inputBoxHeight - 10
       let historyRect = rect(contentRect.x, contentRect.y, contentRect.w, chatHistoryHeight)
+
+      # TODO: silky frame widget should support autoScrollToBottom flag in FrameState
+      # to avoid manual content size calculation and scroll position setting
       frame("chat_history", historyRect.xy, historyRect.wh):
-        sk.at = historyRect.xy + vec2(8, 8)
         for message in chatMessages:
-          # Sender label
+          # Draw sender label
           let senderColor = if message.sender == "User": UserMessageColor else: AIMessageColor
-          discard sk.drawText("Default", message.sender & ": ", sk.at, senderColor)
-          sk.at.x += sk.getTextSize("Default", message.sender & ": ").x
+          let senderText = message.sender & ": "
+          let senderTextSize = sk.drawText("Default", senderText, sk.at, senderColor)
+          sk.at.x += senderTextSize.x
 
-          # Message content (wrap to next line if needed)
-          let messageSize = sk.getTextSize("Default", message.content)
-          if sk.at.x + messageSize.x > historyRect.x + historyRect.w - 16:
-            sk.at.x = historyRect.x + 8
-            sk.at.y += 20
+          # Draw message content - account for max width to allow wrapping
+          let maxContentWidth = sk.size.x - sk.at.x - theme.padding.float32 - 10  # Account for scrollbar
+          let contentTextSize = sk.drawText("Default", message.content, sk.at, TextPrimaryColor, maxWidth = maxContentWidth)
 
-          discard sk.drawText("Default", message.content, sk.at, TextPrimaryColor)
-          sk.at.x = historyRect.x + 8
-          sk.at.y += 25
+          # Advance to next line - use the maximum height of sender label and content
+          let messageHeight = max(senderTextSize.y, contentTextSize.y) + 5  # Add small spacing
+          sk.advance(vec2(0, messageHeight))  # This updates stretchAt
+          sk.at.x = sk.pos.x + theme.padding.float32  # Reset x for next line
+
+      # Auto-scroll to bottom after frame is done processing
+      # TODO: silky frame widget should support autoScrollToBottom flag to avoid manual calculation
+      # We need to calculate content size manually since sk.stretchAt is reset after frame is popped
+      if shouldAutoScrollChat and "chat_history" in frameStates:
+        let frameState = frameStates["chat_history"]
+        # Calculate total content height by summing all message heights
+        # This should match the actual drawing logic above
+        var totalContentHeight = theme.padding.float32  # Start with top padding
+        let framePadding = theme.padding.float32
+        let messageSpacing = 5.0f  # Match the spacing used in drawing
+        let maxContentWidth = historyRect.w - framePadding * 2 - 10  # Account for scrollbar width
+        
+        for message in chatMessages:
+          let senderText = message.sender & ": "
+          let senderTextSize = sk.getTextSize("Default", senderText)
+          let contentTextSize = sk.getTextSize("Default", message.content)
+          # Calculate wrapped height for content (accounting for maxWidth)
+          # Use the font's lineHeight to calculate wrapped lines
+          let font = sk.atlas.fonts["Default"]
+          let lineHeight = font.lineHeight
+          let wrappedHeight = if contentTextSize.x > maxContentWidth:
+            # Approximate wrapped height: ceil(width / maxWidth) * lineHeight
+            let lines = (contentTextSize.x / maxContentWidth).ceil.int
+            lineHeight * lines.float32
+          else:
+            contentTextSize.y
+          # Message height is max of sender label height and wrapped content height, plus spacing
+          let messageHeight = max(senderTextSize.y, wrappedHeight) + messageSpacing
+          totalContentHeight += messageHeight
+        
+        totalContentHeight += framePadding + 16  # Bottom padding + extra spacing (matches frame template)
+        
+        # Calculate scroll position to show bottom
+        let scrollMax = max(totalContentHeight - historyRect.h, 0.0f)
+        if scrollMax > 0:
+          frameState.scrollPos.y = scrollMax
+        
+        shouldAutoScrollChat = false
 
 
       # Position input box at bottom, expanding upward
@@ -250,10 +293,12 @@ window.onFrame = proc() =
   if window.buttonPressed[KeyEnter] and not isAiResponding:
     if currentInput.len > 0:
       chatMessages.add(ChatMessage(sender: "User", content: currentInput, timestamp: epochTime()))
+      shouldAutoScrollChat = true  # Auto-scroll when user sends message
 
-      # Start AI streaming response
+      # Start AI streaming response - add empty message to chatMessages immediately
       isAiResponding = true
-      currentAiMessage = ChatMessage(sender: "AI", content: "", timestamp: epochTime())
+      chatMessages.add(ChatMessage(sender: "AI", content: "", timestamp: epochTime()))
+      shouldAutoScrollChat = true  # Auto-scroll when AI starts responding
 
       # Convert chat messages to openai_leap format and start streaming
       let openaiMessages = convertChatMessagesToOpenAi(chatMessages)
@@ -270,10 +315,13 @@ window.onFrame = proc() =
   if isAiResponding and currentAiStream.isSome:
     let chunk = agents.qwen3_coder.getNextChunk(currentAiStream.get())
     if chunk.isSome:
-      currentAiMessage.content &= chunk.get()
+      # Update the last message in chatMessages (which is the AI response being streamed)
+      chatMessages[^1].content &= chunk.get()
+      # Auto-scroll as new content streams in (only if we're already near the bottom)
+      # TODO: Check if user has scrolled up manually before auto-scrolling during streaming
+      shouldAutoScrollChat = true
     else:
       # Stream is complete
-      chatMessages.add(currentAiMessage)
       isAiResponding = false
       currentAiStream = none(OpenAIStream)
 
