@@ -6,8 +6,8 @@ license     = "MIT"
 srcDir = "src"
 
 requires "https://github.com/treeform/shady.git#head"
-requires "nim >= 2.0.0", "opengl", "windy", "bumpy", "vmath", "chroma"
 requires "https://github.com/treeform/silky"
+requires "nim >= 2.0.0", "opengl", "windy", "bumpy", "vmath", "chroma"
 requires "https://gitea.solution-nine.monofuel.dev/Monolab/Racha"
 
 # silky requires the latest shady on git, there hasn't been a release yet.

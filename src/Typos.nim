@@ -1,4 +1,7 @@
+## Typos τύπος
 ## AI Text Editor using silky.
+##
+# TODO very barebones, needs more work
 
 import
   std/[times, options],
@@ -8,6 +11,7 @@ import
   ./Typos/common,
   ./agents
 
+# TODO this is stupid we never do imports like this in nim
 from silky/widgets import frameStates
 
 
@@ -189,7 +193,7 @@ proc drawArea(area: Area, r: Rect) =
         let framePadding = theme.padding.float32
         let messageSpacing = 5.0f  # Match the spacing used in drawing
         let maxContentWidth = historyRect.w - framePadding * 2 - 10  # Account for scrollbar width
-        
+
         for message in chatMessages:
           let senderText = message.sender & ": "
           let senderTextSize = sk.getTextSize("Default", senderText)
@@ -207,14 +211,14 @@ proc drawArea(area: Area, r: Rect) =
           # Message height is max of sender label height and wrapped content height, plus spacing
           let messageHeight = max(senderTextSize.y, wrappedHeight) + messageSpacing
           totalContentHeight += messageHeight
-        
+
         totalContentHeight += framePadding + 16  # Bottom padding + extra spacing (matches frame template)
-        
+
         # Calculate scroll position to show bottom
         let scrollMax = max(totalContentHeight - historyRect.h, 0.0f)
         if scrollMax > 0:
           frameState.scrollPos.y = scrollMax
-        
+
         shouldAutoScrollChat = false
 
 
