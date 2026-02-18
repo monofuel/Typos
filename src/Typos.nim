@@ -7,7 +7,6 @@ import
   std/[times, options],
   opengl, windy, bumpy, vmath,
   silky,
-  openai_leap,
   ./Typos/common,
   ./agents
 
@@ -27,7 +26,7 @@ var
 # AI streaming state
 var
   isAiResponding: bool = false
-  currentAiStream: Option[OpenAIStream]
+  currentAiStream: Option[TyposResponseStream]
   shouldAutoScrollChat: bool = false
 
 # Initialize with some sample messages
@@ -37,25 +36,6 @@ chatMessages.add(ChatMessage(sender: "AI", content: "Great! I can help you with 
 
 proc snapToPixels(rect: Rect): Rect =
   rect(rect.x.int.float32, rect.y.int.float32, rect.w.int.float32, rect.h.int.float32)
-
-# TODO we should probably use openai_leap message format internally?
-# we will always be using the openai api format for all providers.
-
-proc convertChatMessagesToOpenAi(chatMsgs: seq[ChatMessage]): seq[Message] =
-  ## Convert our ChatMessage format to openai_leap Message format
-  result = @[]
-  for msg in chatMsgs:
-    let role = if msg.sender == "User": "user" else: "assistant"
-    let openaiMsg = Message(
-      role: role,
-      content: option(@[
-        MessageContentPart(
-          `type`: "text",
-          text: option(msg.content)
-        )
-      ])
-    )
-    result.add(openaiMsg)
 
 proc addPanel*(area: Area, name: string) =
   let panel = Panel(name: name)
@@ -304,9 +284,8 @@ window.onFrame = proc() =
       chatMessages.add(ChatMessage(sender: "AI", content: "", timestamp: epochTime()))
       shouldAutoScrollChat = true  # Auto-scroll when AI starts responding
 
-      # Convert chat messages to openai_leap format and start streaming
-      let openaiMessages = convertChatMessagesToOpenAi(chatMessages)
-      currentAiStream = some(agents.qwen3_coder.sendMessage(openaiMessages))
+      # Start Responses API streaming using full chat history.
+      currentAiStream = some(agents.responses_chat.sendMessage(chatMessages))
 
       # Clear silky's internal state directly
       if inputId in silky.widgets.textInputStates:
@@ -317,7 +296,7 @@ window.onFrame = proc() =
 
   # Process AI streaming response
   if isAiResponding and currentAiStream.isSome:
-    let chunk = agents.qwen3_coder.getNextChunk(currentAiStream.get())
+    let chunk = agents.responses_chat.getNextChunk(currentAiStream.get())
     if chunk.isSome:
       # Update the last message in chatMessages (which is the AI response being streamed)
       chatMessages[^1].content &= chunk.get()
@@ -327,7 +306,7 @@ window.onFrame = proc() =
     else:
       # Stream is complete
       isAiResponding = false
-      currentAiStream = none(OpenAIStream)
+      currentAiStream = none(TyposResponseStream)
 
   sk.beginUI(window, window.size)
 

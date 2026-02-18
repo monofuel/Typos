@@ -1,6 +1,8 @@
 ## Common types and constants for Typos
 
-import chroma, bumpy
+import
+  chroma,
+  bumpy
 
 # local lm studio
 # http://10.11.2.14:1234
@@ -18,6 +20,17 @@ type
     content*: string
     timestamp*: float64
 
+  ProviderKind* = enum
+    ProviderLmStudio
+    ProviderOpenAi
+    ProviderBedrock
+
+  ProviderConfig* = object
+    provider*: ProviderKind
+    model*: string
+    baseUrl*: string
+    apiEnvVar*: string
+
 # Panel system types
 type
   Panel* = ref object
@@ -31,6 +44,19 @@ type
 
 # Theme constants for dark mode
 const
+  LmStudioProviderName* = "lm_studio"
+  OpenAiProviderName* = "openai"
+  BedrockProviderName* = "bedrock"
+
+  OpenAiBaseUrl* = "https://api.openai.com/v1"
+  BedrockBaseUrl* = "https://bedrock-mantle.us-east-1.api.aws/v1"
+  OpenAiApiEnvVar* = "OPENAI_API_KEY"
+  BedrockApiEnvVar* = "AWS_BEDROCK_TOKEN"
+
+  LmStudioDefaultModel* = "unsloth/qwen3-coder-30b-a3b-instruct"
+  OpenAiDefaultModel* = "gpt-5.1-codex-mini"
+  BedrockDefaultModel* = "openai.gpt-oss-20b"
+
   # Background colors
   BackgroundColor* = parseHtmlColor("#0d1117").rgbx  # Main background
   PanelBackgroundColor* = parseHtmlColor("#161b22").rgbx  # Panel backgrounds
@@ -48,5 +74,4 @@ const
   # LM Studio and model constants
   LmStudioBaseUrl* = "http://10.11.2.14:1234/v1"
   # NB. this model is currently the tq1 version, very fast but very basic.
-  Qwen3CoderModel* = "unsloth/qwen3-coder-30b-a3b-instruct"
-
+  Qwen3CoderModel* = LmStudioDefaultModel
