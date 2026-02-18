@@ -21,13 +21,15 @@ const
 var
   chatMessages: seq[ChatMessage]
   currentInput: string
-  inputId: int = 0
+  inputId: string = "chat_input"
 
 # AI streaming state
 var
   isAiResponding: bool = false
   currentAiStream: Option[TyposResponseStream]
   shouldAutoScrollChat: bool = false
+  pendingAiStart: bool = false
+  pendingAiMessages: seq[ChatMessage]
 
 # Initialize with some sample messages
 chatMessages.add(ChatMessage(sender: "AI", content: "Hello! I'm your AI assistant. How can I help you today?", timestamp: 0.0))
@@ -134,6 +136,7 @@ proc drawArea(area: Area, r: Rect) =
       let font = sk.atlas.fonts["Default"]
       let lineHeight = font.lineHeight
       let minInputHeight = lineHeight + inputBoxPadding.y * 2
+      let framePadding = sk.theme.padding.float32
 
       # Calculate height needed for wrapped text
       let textSize = sk.getTextSize("Default", currentInput)
@@ -143,8 +146,7 @@ proc drawArea(area: Area, r: Rect) =
       let chatHistoryHeight = contentRect.h - inputBoxHeight - 10
       let historyRect = rect(contentRect.x, contentRect.y, contentRect.w, chatHistoryHeight)
 
-      # TODO: silky frame widget should support autoScrollToBottom flag in FrameState
-      # to avoid manual content size calculation and scroll position setting
+      var renderedContentHeight = framePadding
       frame("chat_history", historyRect.xy, historyRect.wh):
         for message in chatMessages:
           # Draw sender label
@@ -153,46 +155,27 @@ proc drawArea(area: Area, r: Rect) =
           let senderTextSize = sk.drawText("Default", senderText, sk.at, senderColor)
           sk.at.x += senderTextSize.x
 
-          # Draw message content - account for max width to allow wrapping
-          let maxContentWidth = sk.size.x - sk.at.x - theme.padding.float32 - 10  # Account for scrollbar
-          let contentTextSize = sk.drawText("Default", message.content, sk.at, TextPrimaryColor, maxWidth = maxContentWidth)
+          # Draw message content using native drawText word wrapping.
+          let maxContentWidth = max(sk.size.x - sk.at.x - framePadding - 10, 1.0f)
+          let contentTextSize = sk.drawText(
+            "Default",
+            message.content,
+            sk.at,
+            TextPrimaryColor,
+            maxWidth = maxContentWidth,
+            wordWrap = true
+          )
 
           # Advance to next line - use the maximum height of sender label and content
           let messageHeight = max(senderTextSize.y, contentTextSize.y) + 5  # Add small spacing
+          renderedContentHeight += messageHeight
           sk.advance(vec2(0, messageHeight))  # This updates stretchAt
-          sk.at.x = sk.pos.x + theme.padding.float32  # Reset x for next line
+          sk.at.x = sk.pos.x + framePadding  # Reset x for next line
 
       # Auto-scroll to bottom after frame is done processing
-      # TODO: silky frame widget should support autoScrollToBottom flag to avoid manual calculation
-      # We need to calculate content size manually since sk.stretchAt is reset after frame is popped
       if shouldAutoScrollChat and "chat_history" in frameStates:
         let frameState = frameStates["chat_history"]
-        # Calculate total content height by summing all message heights
-        # This should match the actual drawing logic above
-        var totalContentHeight = theme.padding.float32  # Start with top padding
-        let framePadding = theme.padding.float32
-        let messageSpacing = 5.0f  # Match the spacing used in drawing
-        let maxContentWidth = historyRect.w - framePadding * 2 - 10  # Account for scrollbar width
-
-        for message in chatMessages:
-          let senderText = message.sender & ": "
-          let senderTextSize = sk.getTextSize("Default", senderText)
-          let contentTextSize = sk.getTextSize("Default", message.content)
-          # Calculate wrapped height for content (accounting for maxWidth)
-          # Use the font's lineHeight to calculate wrapped lines
-          let font = sk.atlas.fonts["Default"]
-          let lineHeight = font.lineHeight
-          let wrappedHeight = if contentTextSize.x > maxContentWidth:
-            # Approximate wrapped height: ceil(width / maxWidth) * lineHeight
-            let lines = (contentTextSize.x / maxContentWidth).ceil.int
-            lineHeight * lines.float32
-          else:
-            contentTextSize.y
-          # Message height is max of sender label height and wrapped content height, plus spacing
-          let messageHeight = max(senderTextSize.y, wrappedHeight) + messageSpacing
-          totalContentHeight += messageHeight
-
-        totalContentHeight += framePadding + 16  # Bottom padding + extra spacing (matches frame template)
+        let totalContentHeight = renderedContentHeight + framePadding + 16
 
         # Calculate scroll position to show bottom
         let scrollMax = max(totalContentHeight - historyRect.h, 0.0f)
@@ -209,49 +192,23 @@ proc drawArea(area: Area, r: Rect) =
       let bgColor = if isAiResponding: BorderColor else: WhiteColor
       sk.draw9Patch("frame.9patch", 6, inputRect.xy, inputRect.wh, bgColor)
 
-      # Set up clip rect for input area
-      sk.pushClipRect(rect(inputRect.x + 1, inputRect.y + 1, inputRect.w - 2, inputRect.h - 2))
-
-      # Position text inside the input box
-      sk.at = inputRect.xy + inputBoxPadding
-
-      # Draw input text manually (simplified version without frame wrapper)
-      if inputId notin silky.widgets.textInputStates:
-        silky.widgets.textInputStates[inputId] = InputTextState(focused: false)
-        silky.widgets.textInputStates[inputId].setText(currentInput)
-
-      let textInputState = silky.widgets.textInputStates[inputId]
-
-      # Handle focus
-      if window.buttonPressed[MouseLeft]:
-        if window.mousePos.vec2.overlaps(inputRect):
-          textInputState.focused = true
-        else:
-          textInputState.focused = false
-
-      # Process input if focused
-      if textInputState.focused:
-        # Process runes
-        for r in sk.inputRunes:
-          textInputState.typeCharacter(r)
-        textInputState.handleInput(window)
-        # Sync back
-        currentInput = textInputState.getText()
-
-      # Draw text - dimmed when AI is responding
-      let textColor = if isAiResponding: TextSecondaryColor else: TextPrimaryColor
-      let displayText = if isAiResponding: "AI is typing..." else: currentInput
-      discard sk.drawText("Default", displayText, sk.at, textColor)
-
-      # Draw cursor if focused
-      if textInputState.focused and (epochTime() * 2).int mod 2 == 0:
-        let textBeforeCursor = $textInputState.runes[0 ..< min(textInputState.cursor, textInputState.runes.len)]
-        let textSize = sk.getTextSize("Default", textBeforeCursor)
-        let cursorX = sk.at.x + textSize.x
-        let cursorY = sk.at.y
-        sk.drawRect(vec2(cursorX, cursorY), vec2(2, lineHeight), TextPrimaryColor)
-
-      sk.popClipRect()
+      if isAiResponding:
+        # Set up clip rect for input area.
+        sk.pushClipRect(rect(inputRect.x + 1, inputRect.y + 1, inputRect.w - 2, inputRect.h - 2))
+        sk.at = inputRect.xy + inputBoxPadding
+        discard sk.drawText("Default", "AI is typing...", sk.at, TextSecondaryColor)
+        sk.popClipRect()
+      else:
+        # Use silky's native text box for wrapping and editing behavior.
+        sk.at = inputRect.xy
+        sk.textBox(
+          window,
+          inputId,
+          currentInput,
+          inputRect.w,
+          inputRect.h,
+          wrapWords = true
+        )
 
 
     else:
@@ -278,18 +235,17 @@ window.onFrame = proc() =
     if currentInput.len > 0:
       chatMessages.add(ChatMessage(sender: "User", content: currentInput, timestamp: epochTime()))
       shouldAutoScrollChat = true  # Auto-scroll when user sends message
+      pendingAiMessages = chatMessages
 
       # Start AI streaming response - add empty message to chatMessages immediately
       isAiResponding = true
       chatMessages.add(ChatMessage(sender: "AI", content: "", timestamp: epochTime()))
       shouldAutoScrollChat = true  # Auto-scroll when AI starts responding
-
-      # Start Responses API streaming using full chat history.
-      currentAiStream = some(agents.responses_chat.sendMessage(chatMessages))
+      pendingAiStart = true
 
       # Clear silky's internal state directly
-      if inputId in silky.widgets.textInputStates:
-        silky.widgets.textInputStates[inputId].setText("")
+      if inputId in silky.textboxes.textBoxStates:
+        silky.textboxes.textBoxStates[inputId].setText("")
       currentInput = ""
       # Clear any pending input runes to prevent them from being added back
       sk.inputRunes.setLen(0)
@@ -322,6 +278,11 @@ window.onFrame = proc() =
 
   sk.endUi()
   window.swapBuffers()
+
+  if pendingAiStart:
+    # Start the stream after presenting one frame so the cleared input is visible immediately.
+    currentAiStream = some(agents.responses_chat.sendMessage(pendingAiMessages))
+    pendingAiStart = false
 
 when defined(emscripten):
   window.run()
