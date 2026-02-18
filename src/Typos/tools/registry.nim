@@ -2,12 +2,74 @@ import
   std/[json, options, os, osproc, re, streams, strformat, strutils],
   openai_leap
 
+type
+  ToolOps* = object
+    fileExists*: proc(path: string): bool
+    dirExists*: proc(path: string): bool
+    readFile*: proc(path: string): string
+    writeFile*: proc(path: string, content: string)
+    createDir*: proc(path: string)
+    removeFile*: proc(path: string)
+
 
 const
   MaxToolOutputChars = 100000
 
 
 var collectedIssues*: seq[JsonNode] = @[]
+
+
+proc defaultFileExists(path: string): bool =
+  ## Check whether a file exists on disk.
+  return fileExists(path)
+
+
+proc defaultDirExists(path: string): bool =
+  ## Check whether a directory exists on disk.
+  return dirExists(path)
+
+
+proc defaultReadFile(path: string): string =
+  ## Read file contents from disk.
+  return readFile(path)
+
+
+proc defaultWriteFile(path: string, content: string) =
+  ## Write file contents to disk.
+  writeFile(path, content)
+
+
+proc defaultCreateDir(path: string) =
+  ## Create directory on disk.
+  createDir(path)
+
+
+proc defaultRemoveFile(path: string) =
+  ## Remove a file on disk.
+  removeFile(path)
+
+
+let defaultToolOps = ToolOps(
+  fileExists: defaultFileExists,
+  dirExists: defaultDirExists,
+  readFile: defaultReadFile,
+  writeFile: defaultWriteFile,
+  createDir: defaultCreateDir,
+  removeFile: defaultRemoveFile
+)
+
+
+var activeToolOps = defaultToolOps
+
+
+proc setToolOps*(ops: ToolOps) =
+  ## Set tool operation handlers, used by tests for mocking.
+  activeToolOps = ops
+
+
+proc resetToolOps*() =
+  ## Reset tool operation handlers to default filesystem-backed operations.
+  activeToolOps = defaultToolOps
 
 
 proc validateToolArgs(args: JsonNode, toolName: string, requiredParams: seq[string]): string =
@@ -26,7 +88,7 @@ proc resolveWorkingDir(args: JsonNode): string =
   ## Resolve a working directory from tool args with safe fallback.
   if args.hasKey("working_dir"):
     let rawDir = args["working_dir"].getStr.strip()
-    if rawDir.len > 0 and dirExists(rawDir):
+    if rawDir.len > 0 and activeToolOps.dirExists(rawDir):
       return rawDir
   return getCurrentDir()
 
@@ -164,10 +226,100 @@ proc readFileTool(args: JsonNode): string =
     return validationError
 
   let filePath = args["file_path"].getStr
-  try:
-    return truncateToolOutput(readFile(filePath), "read_file")
-  except:
-    return &"Failed to read file {filePath}: {getCurrentExceptionMsg()}"
+  if not activeToolOps.fileExists(filePath):
+    return &"Failed to read file {filePath}: file does not exist."
+  return truncateToolOutput(activeToolOps.readFile(filePath), "read_file")
+
+
+proc writeFileTool(args: JsonNode): string =
+  ## Write file contents, optionally refusing overwrite.
+  let validationError = validateToolArgs(args, "write_file", @["file_path", "content"])
+  if validationError.len > 0:
+    return validationError
+
+  let filePath = args["file_path"].getStr
+  let content = args["content"].getStr
+  let overwrite = if args.hasKey("overwrite"): args["overwrite"].getBool else: true
+  if not overwrite and activeToolOps.fileExists(filePath):
+    return &"Refusing to overwrite existing file: {filePath}"
+
+  activeToolOps.writeFile(filePath, content)
+  return &"Wrote {content.len} bytes to {filePath}."
+
+
+proc appendFileTool(args: JsonNode): string =
+  ## Append content to a file, creating it if missing.
+  let validationError = validateToolArgs(args, "append_file", @["file_path", "content"])
+  if validationError.len > 0:
+    return validationError
+
+  let filePath = args["file_path"].getStr
+  let content = args["content"].getStr
+  let existing = if activeToolOps.fileExists(filePath): activeToolOps.readFile(filePath) else: ""
+  activeToolOps.writeFile(filePath, existing & content)
+  return &"Appended {content.len} bytes to {filePath}."
+
+
+proc replaceInFileTool(args: JsonNode): string =
+  ## Replace text in file content, once or globally.
+  let validationError = validateToolArgs(args, "replace_in_file", @["file_path", "old_text", "new_text"])
+  if validationError.len > 0:
+    return validationError
+
+  let filePath = args["file_path"].getStr
+  if not activeToolOps.fileExists(filePath):
+    return &"File does not exist: {filePath}"
+
+  let oldText = args["old_text"].getStr
+  let newText = args["new_text"].getStr
+  let replaceAll = if args.hasKey("replace_all"): args["replace_all"].getBool else: false
+  if oldText.len == 0:
+    return "old_text cannot be empty."
+
+  let original = activeToolOps.readFile(filePath)
+  let firstMatch = original.find(oldText)
+  if firstMatch < 0:
+    return &"No matches found for replacement in {filePath}."
+
+  if replaceAll:
+    let replaced = original.replace(oldText, newText)
+    activeToolOps.writeFile(filePath, replaced)
+    let replacedCount = original.count(oldText)
+    return &"Replaced {replacedCount} occurrence(s) in {filePath}."
+
+  let prefix = original[0 ..< firstMatch]
+  let suffixStart = firstMatch + oldText.len
+  let suffix = if suffixStart < original.len: original[suffixStart .. ^1] else: ""
+  activeToolOps.writeFile(filePath, prefix & newText & suffix)
+  return &"Replaced 1 occurrence(s) in {filePath}."
+
+
+proc createDirectoryTool(args: JsonNode): string =
+  ## Create a directory.
+  let validationError = validateToolArgs(args, "create_directory", @["dir_path"])
+  if validationError.len > 0:
+    return validationError
+
+  let dirPath = args["dir_path"].getStr
+  if activeToolOps.dirExists(dirPath):
+    return &"Directory already exists: {dirPath}"
+
+  activeToolOps.createDir(dirPath)
+  return &"Created directory: {dirPath}"
+
+
+proc deleteFileTool(args: JsonNode): string =
+  ## Delete a file when present.
+  let validationError = validateToolArgs(args, "delete_file", @["file_path"])
+  if validationError.len > 0:
+    return validationError
+
+  let filePath = args["file_path"].getStr
+  if not activeToolOps.fileExists(filePath):
+    return &"File does not exist: {filePath}"
+
+  activeToolOps.removeFile(filePath)
+  return &"Deleted file: {filePath}"
 
 
 proc awkTool(args: JsonNode): string =
@@ -357,6 +509,36 @@ proc getTyposReadTools*(): ResponseToolsTable =
 proc getTyposReadWriteTools*(): ResponseToolsTable =
   ## Build and return the read+write tool registry for Typoi/Typos.
   result = getTyposReadTools()
+
+  result.register("write_file", ToolFunction(
+    name: "write_file",
+    description: option("Write full file contents"),
+    parameters: option(%*{"type": "object", "properties": {"file_path": {"type": "string"}, "content": {"type": "string"}, "overwrite": {"type": "boolean"}}, "required": ["file_path", "content"]})
+  ), writeFileTool)
+
+  result.register("append_file", ToolFunction(
+    name: "append_file",
+    description: option("Append content to file"),
+    parameters: option(%*{"type": "object", "properties": {"file_path": {"type": "string"}, "content": {"type": "string"}}, "required": ["file_path", "content"]})
+  ), appendFileTool)
+
+  result.register("replace_in_file", ToolFunction(
+    name: "replace_in_file",
+    description: option("Replace content inside file text"),
+    parameters: option(%*{"type": "object", "properties": {"file_path": {"type": "string"}, "old_text": {"type": "string"}, "new_text": {"type": "string"}, "replace_all": {"type": "boolean"}}, "required": ["file_path", "old_text", "new_text"]})
+  ), replaceInFileTool)
+
+  result.register("create_directory", ToolFunction(
+    name: "create_directory",
+    description: option("Create directory"),
+    parameters: option(%*{"type": "object", "properties": {"dir_path": {"type": "string"}}, "required": ["dir_path"]})
+  ), createDirectoryTool)
+
+  result.register("delete_file", ToolFunction(
+    name: "delete_file",
+    description: option("Delete file"),
+    parameters: option(%*{"type": "object", "properties": {"file_path": {"type": "string"}}, "required": ["file_path"]})
+  ), deleteFileTool)
 
   result.register("create_issue", ToolFunction(
     name: "create_issue",
