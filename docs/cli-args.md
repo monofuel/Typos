@@ -1,134 +1,72 @@
 # CLI Arguments
 
-This document captures the current command-line argument behavior used by the existing implementation, so it can be reproduced in Typos.
+This document defines the current Typoi CLI behavior.
 
 ## Usage
 
 ```bash
-<binary> [options] [--prompt "text" | < prompt.txt]
+typoi [options] [--prompt "text" | < prompt.txt]
 ```
 
-Prompt sources:
+## Input Modes
 
-- `--prompt` / `-p` if provided.
-- otherwise stdin is read.
-- empty prompt is an error.
+Typoi supports one-shot and interactive REPL in a single binary.
+
+- If `--prompt` / `-p` is provided: one-shot mode.
+- Else if stdin is piped: one-shot mode using stdin content.
+- Else (stdin is a TTY): REPL mode.
+
+If stdin is piped but empty and no `--prompt` is provided, Typoi exits with an error.
 
 ## Defaults
 
-- `--model`: `grok-code-fast-1`
-- `--provider`: `xai`
-- `--api-env-var`: `OPENAI_API_KEY`
-- `--base-url`: empty string (provider default behavior)
-- `--temperature`: `1.0`
+- `--provider`: `openai`
+- `--model`: `gpt-5.1-codex-mini`
+- `--api-env-var`: provider default
+- `--base-url`: provider default
+- tool mode: none
+
+Provider defaults:
+
+- `openai`
+  - base URL: `https://api.openai.com/v1`
+  - env var: `OPENAI_API_KEY`
+- `lm_studio`
+  - base URL: `http://10.11.2.14:1234/v1`
+  - env var: none required
+- `bedrock`
+  - base URL: `https://bedrock-mantle.us-east-1.api.aws/v1`
+  - env var: `AWS_BEDROCK_TOKEN`
 
 ## Supported Flags
 
-### Core Model / Provider
-
-- `--model=MODEL`
 - `--provider=PROVIDER`
+- `--model=MODEL`
 - `--api-env-var=VAR`
 - `--base-url=URL`
-- `--temperature=FLOAT`
-
-Temperature validation:
-
-- must parse as float
-- must be in `[0.0, 2.0]`
-- invalid values exit with error
-
-### Prompt Input
-
 - `-p, --prompt=TEXT`
-- `--system-prompt-file=FILE`
-
-`--system-prompt-file` appends additional instructions to the generated system prompt.
-
-### Tool Mode
-
 - `--read-tools`
 - `--yolo`
+- `-h, --help`
 
-Behavior:
+## Tool Mode (Current Scope)
 
-- if neither flag is set: no tools
-- if `--read-tools` is set: read-only tools
-- if `--yolo` is set: all tools (read + write)
-- if both are set: all tools (YOLO takes precedence)
+Tool mode is parsed and tracked, but no real tool execution is implemented yet.
 
-### Runtime / Diagnostics
+- no flag: tool mode `none`
+- `--read-tools`: tool mode `read`
+- `--yolo`: tool mode `yolo` (read + write)
+- if both are passed, `--yolo` takes precedence
 
-- `--pull-model`
-- `--trace`
-- `--trace-file=FILE`
-- `--log-ttft`
+## REPL Commands
 
-Behavior notes:
+- `/help`
+- `/clear`
+- `/exit` (or `/quit`)
 
-- `--pull-model` only applies to local provider flows.
-- tracing writes Chrome-compatible timing traces.
-- `--log-ttft` enables streaming-based time-to-first-token logging for no-tool requests.
+## Out of Scope for Now
 
-### Meta Analysis
-
-- `--meta-analysis`
-- `--meta-analysis-file=FILE`
-
-Runs a post-response quality check and writes markdown when enabled.
-
-### Mock Mode
-
-- `--mock=FILE`
-
-Mock-mode constraints:
-
-- requires both `--provider=mock` and `--model=mock`
-- requires `--mock=...`
-- cannot be combined with `--meta-analysis`
-- cannot be combined with `--pull-model`
-
-### MCP Server Mode
-
-- `--mcp-server`
-
-Behavior:
-
-- starts HTTP MCP server on `127.0.0.1:4243` at `/mcp`
-- uses the configured provider/model
-- write tools are enabled only when `--yolo` is set
-- `--read-tools` is not used by MCP startup path; MCP write enablement is keyed from `--yolo`
-
-### Help
-
-- `-h`, `--help`
-
-## Supported Provider Values
-
-- `openai`
-- `xai`
-- `anthropic`
-- `gemini`
-- `openrouter`
-- `andrewlytics`
-- `local`
-- `mock`
-
-## Exit / Error Semantics
-
-Common immediate-fail cases:
-
-- unknown option
-- missing prompt (no `--prompt` and empty stdin)
-- invalid temperature
-- mock-mode mismatch/invalid combinations
-- unknown provider
-
-## Suggested Compatibility Notes for Typos
-
-To preserve behavior parity:
-
-- keep argument names and defaults unchanged initially
-- keep mode precedence (`--yolo` over `--read-tools`)
-- keep strict mock-mode validation
-- keep MCP server host/port/path and write-enable behavior
+- MCP server mode
+- meta-analysis mode
+- mock mode
+- pull-model mode
