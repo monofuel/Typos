@@ -37,8 +37,8 @@ proc printHelp() =
   echo "  --api-env-var=NAME   Override API key environment variable"
   echo "  --base-url=URL       Override provider base URL"
   echo "  -p, --prompt=TEXT    One-shot prompt text"
-  echo "  --read-tools         Select read-only tool mode (stub)"
-  echo "  --yolo               Select read+write tool mode (stub)"
+  echo "  --read-tools         Enable read-only tool mode"
+  echo "  --yolo               Select read+write mode (write tools not implemented yet)"
   echo "  -h, --help           Show help"
   echo ""
   echo "Commands:"
@@ -48,9 +48,13 @@ proc printHelp() =
   echo ""
 
 
-proc streamAssistantResponse(chatMessages: seq[ChatMessage]): string =
-  ## Stream an assistant response and return the final accumulated text.
-  let stream = agents.responses_chat.sendMessage(chatMessages)
+proc streamAssistantResponse(chatMessages: seq[ChatMessage], toolMode: ToolMode): string =
+  ## Stream or buffer assistant response with optional read-tools support.
+  let stream = if toolMode == ToolModeReadOnly:
+    agents.responses_chat.sendMessageWithReadTools(chatMessages)
+  else:
+    agents.responses_chat.sendMessage(chatMessages)
+
   while true:
     let chunk = agents.responses_chat.getNextChunk(stream)
     if chunk.isSome:
@@ -62,7 +66,7 @@ proc streamAssistantResponse(chatMessages: seq[ChatMessage]): string =
       break
 
 
-proc runOneShot(config: ProviderConfig, prompt: string) =
+proc runOneShot(config: ProviderConfig, prompt: string, toolMode: ToolMode) =
   ## Run a single prompt-response exchange and exit.
   agents.responses_chat.initClient(config)
 
@@ -75,7 +79,7 @@ proc runOneShot(config: ProviderConfig, prompt: string) =
     )
   )
 
-  let assistantResponse = streamAssistantResponse(chatMessages)
+  let assistantResponse = streamAssistantResponse(chatMessages, toolMode)
   if assistantResponse.len > 0 and not assistantResponse.endsWith("\n"):
     echo ""
 
@@ -123,7 +127,7 @@ proc runRepl(config: ProviderConfig, toolMode: ToolMode) =
 
     stdout.write("Assistant: ")
     stdout.flushFile()
-    let assistantResponse = streamAssistantResponse(chatMessages)
+    let assistantResponse = streamAssistantResponse(chatMessages, toolMode)
     echo ""
     echo ""
 
@@ -156,7 +160,7 @@ proc main() =
 
   case inputSelection.mode
   of InputModeOneShot:
-    runOneShot(providerConfig, inputSelection.prompt)
+    runOneShot(providerConfig, inputSelection.prompt, cliConfig.toolMode)
   of InputModeRepl:
     runRepl(providerConfig, cliConfig.toolMode)
 

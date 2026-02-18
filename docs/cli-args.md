@@ -51,11 +51,11 @@ Provider defaults:
 
 ## Tool Mode (Current Scope)
 
-Tool mode is parsed and tracked, but no real tool execution is implemented yet.
+Tool mode behavior:
 
 - no flag: tool mode `none`
-- `--read-tools`: tool mode `read`
-- `--yolo`: tool mode `yolo` (read + write)
+- `--read-tools`: enables the read-only tool registry for Responses API tool-calling
+- `--yolo`: currently behaves like `none` (write tools are not implemented yet)
 - if both are passed, `--yolo` takes precedence
 
 ## REPL Commands
