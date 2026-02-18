@@ -4,10 +4,10 @@
 # TODO very barebones, needs more work
 
 import
-  std/[times, options],
+  std/[os, times, options],
   opengl, windy, bumpy, vmath,
   silky,
-  ./Typos/common,
+  ./Typos/[common, git_diff],
   ./agents
 
 # TODO this is stupid we never do imports like this in nim
@@ -16,6 +16,9 @@ from silky/widgets import frameStates
 
 const
   AreaHeaderHeight = 32.0
+  DiffPaneRatio = 0.58f
+  PaneGap = 8.0f
+  ToolTogglesSpacing = 6.0f
 
 # Chat data
 var
@@ -30,6 +33,15 @@ var
   shouldAutoScrollChat: bool = false
   pendingAiStart: bool = false
   pendingAiMessages: seq[ChatMessage]
+  readToolsEnabled: bool = false
+  yoloModeEnabled: bool = false
+
+# Git diff panel data
+var
+  currentGitDiff: string
+  currentDiffLines: seq[DiffLine]
+  currentDiffStatus: string = "Loading git diff..."
+  diffNeedsRefresh: bool = true
 
 # Initialize with some sample messages
 chatMessages.add(ChatMessage(sender: "AI", content: "Hello! I'm your AI assistant. How can I help you today?", timestamp: 0.0))
@@ -39,12 +51,11 @@ chatMessages.add(ChatMessage(sender: "AI", content: "Great! I can help you with 
 proc snapToPixels(rect: Rect): Rect =
   rect(rect.x.int.float32, rect.y.int.float32, rect.w.int.float32, rect.h.int.float32)
 
-proc addPanel*(area: Area, name: string) =
-  let panel = Panel(name: name)
-  area.panels.add(panel)
-  if area.panels.len == 1:
-    panel.selected = true
-    area.selectedPanelNum = 0
+proc refreshGitDiff() =
+  ## Refresh current git diff text, parsed lines, and summary status.
+  currentGitDiff = readGitDiff(getCurrentDir())
+  currentDiffLines = parseDiffLines(currentGitDiff)
+  currentDiffStatus = diffStatusText(currentGitDiff)
 
 let builder = newAtlasBuilder(1024, 4)
 builder.addDir("data/", "data/")
@@ -60,167 +71,144 @@ let window = newWindow(
 makeContextCurrent(window)
 loadExtensions()
 
-
 let sk = newSilky("dist/atlas.png", "dist/atlas.json")
 
-proc drawArea(area: Area, r: Rect) =
-  area.rect = r.snapToPixels()
 
-  if area.panels.len > 0:
-    # Ensure valid selection
-    if area.selectedPanelNum > area.panels.len - 1:
-      area.selectedPanelNum = area.panels.len - 1
+proc drawPanelShell(title: string, panelRect: Rect): Rect =
+  ## Draw a panel shell and return its inner content rectangle.
+  let r = panelRect.snapToPixels()
+  sk.draw9Patch("panel.body.9patch", 3, r.xy, r.wh)
 
-    # Draw Header
-    let headerRect = rect(r.x, r.y, r.w, AreaHeaderHeight)
-    sk.draw9Patch("panel.header.9patch", 3, headerRect.xy, headerRect.wh)
+  let headerRect = rect(r.x, r.y, r.w, AreaHeaderHeight)
+  sk.draw9Patch("panel.header.9patch", 3, headerRect.xy, headerRect.wh)
+  discard sk.drawText("Default", title, vec2(r.x + 10, r.y + 8), TextPrimaryColor)
 
-    # Draw Tabs
-    var x = r.x + 4
-    sk.pushClipRect(rect(r.x, r.y, r.w - 2, AreaHeaderHeight))
-    for i, panel in area.panels:
-      let textSize = sk.getTextSize("Default", panel.name)
-      let tabW = textSize.x + 16
-      let tabRect = rect(x, r.y + 4, tabW, AreaHeaderHeight - 4)
-
-      let isSelected = i == area.selectedPanelNum
-      let isHovered = window.mousePos.vec2.overlaps(tabRect)
-
-      # Handle Tab Clicks
-      if isHovered and window.buttonPressed[MouseLeft]:
-        area.selectedPanelNum = i
-        for j, p in area.panels:
-          p.selected = (j == i)
-
-      if isSelected:
-        sk.draw9Patch("panel.tab.selected.9patch", 3, tabRect.xy, tabRect.wh, WhiteColor)
-      elif isHovered:
-        sk.draw9Patch("panel.tab.hover.9patch", 3, tabRect.xy, tabRect.wh, WhiteColor)
-      else:
-        sk.draw9Patch("panel.tab.9patch", 3, tabRect.xy, tabRect.wh)
-
-      discard sk.drawText("Default", panel.name, vec2(x + 8, r.y + 4 + 2), TextPrimaryColor)
-
-      x += tabW + 2
-    sk.popClipRect()
-
-    # Draw Content
-    let contentRect = rect(r.x, r.y + AreaHeaderHeight, r.w, r.h - AreaHeaderHeight)
-    let activePanel = area.panels[area.selectedPanelNum]
-    let contentPos = vec2(contentRect.x, contentRect.y)
-    # Draw panel content directly using silky widgets
-    # Start content a bit inset.
-    let contentInset = vec2(8, 8)
-    sk.at = contentPos + contentInset
-
-    case activePanel.name:
-    of "Text Viewer":
-      discard sk.drawText("H1", "Text Viewer", sk.at, TextPrimaryColor)
-      sk.at.y += 40
-      discard sk.drawText("Default", "This is where the text editor content will be displayed.", sk.at, TextPrimaryColor)
-      sk.at.y += 20
-      discard sk.drawText("Default", "Features to implement:", sk.at, TextPrimaryColor)
-      sk.at.y += 20
-      discard sk.drawText("Default", "• Syntax highlighting", sk.at, TextPrimaryColor)
-      sk.at.y += 20
-      discard sk.drawText("Default", "• Line numbers", sk.at, TextPrimaryColor)
-      sk.at.y += 20
-      discard sk.drawText("Default", "• Multi-cursor editing", sk.at, TextPrimaryColor)
-      sk.at.y += 20
-      discard sk.drawText("Default", "• Auto-completion", sk.at, TextPrimaryColor)
-
-    of "AI Chat":
-      # Calculate input box height dynamically
-      let inputBoxWidth = contentRect.w
-      let inputBoxPadding = vec2(8, 8)
-      let font = sk.atlas.fonts["Default"]
-      let lineHeight = font.lineHeight
-      let minInputHeight = lineHeight + inputBoxPadding.y * 2
-      let framePadding = sk.theme.padding.float32
-
-      # Calculate height needed for wrapped text
-      let textSize = sk.getTextSize("Default", currentInput)
-      let inputBoxHeight = max(minInputHeight, textSize.y + inputBoxPadding.y * 2)
-
-      # Chat history area (scrollable) - adjusted for dynamic input height
-      let chatHistoryHeight = contentRect.h - inputBoxHeight - 10
-      let historyRect = rect(contentRect.x, contentRect.y, contentRect.w, chatHistoryHeight)
-
-      var renderedContentHeight = framePadding
-      frame("chat_history", historyRect.xy, historyRect.wh):
-        for message in chatMessages:
-          # Draw sender label
-          let senderColor = if message.sender == "User": UserMessageColor else: AIMessageColor
-          let senderText = message.sender & ": "
-          let senderTextSize = sk.drawText("Default", senderText, sk.at, senderColor)
-          sk.at.x += senderTextSize.x
-
-          # Draw message content using native drawText word wrapping.
-          let maxContentWidth = max(sk.size.x - sk.at.x - framePadding - 10, 1.0f)
-          let contentTextSize = sk.drawText(
-            "Default",
-            message.content,
-            sk.at,
-            TextPrimaryColor,
-            maxWidth = maxContentWidth,
-            wordWrap = true
-          )
-
-          # Advance to next line - use the maximum height of sender label and content
-          let messageHeight = max(senderTextSize.y, contentTextSize.y) + 5  # Add small spacing
-          renderedContentHeight += messageHeight
-          sk.advance(vec2(0, messageHeight))  # This updates stretchAt
-          sk.at.x = sk.pos.x + framePadding  # Reset x for next line
-
-      # Auto-scroll to bottom after frame is done processing
-      if shouldAutoScrollChat and "chat_history" in frameStates:
-        let frameState = frameStates["chat_history"]
-        let totalContentHeight = renderedContentHeight + framePadding + 16
-
-        # Calculate scroll position to show bottom
-        let scrollMax = max(totalContentHeight - historyRect.h, 0.0f)
-        if scrollMax > 0:
-          frameState.scrollPos.y = scrollMax
-
-        shouldAutoScrollChat = false
+  return rect(r.x + 4, r.y + AreaHeaderHeight + 4, r.w - 8, r.h - AreaHeaderHeight - 8)
 
 
-      # Position input box at bottom, expanding upward
-      let inputRect = rect(contentRect.x, contentRect.y + contentRect.h - inputBoxHeight, inputBoxWidth, inputBoxHeight)
-
-      # Draw input box background directly - different color when AI is responding
-      let bgColor = if isAiResponding: BorderColor else: WhiteColor
-      sk.draw9Patch("frame.9patch", 6, inputRect.xy, inputRect.wh, bgColor)
-
-      if isAiResponding:
-        # Set up clip rect for input area.
-        sk.pushClipRect(rect(inputRect.x + 1, inputRect.y + 1, inputRect.w - 2, inputRect.h - 2))
-        sk.at = inputRect.xy + inputBoxPadding
-        discard sk.drawText("Default", "AI is typing...", sk.at, TextSecondaryColor)
-        sk.popClipRect()
-      else:
-        # Use silky's native text box for wrapping and editing behavior.
-        sk.at = inputRect.xy
-        sk.textBox(
-          window,
-          inputId,
-          currentInput,
-          inputRect.w,
-          inputRect.h,
-          wrapWords = true
-        )
+proc diffLineColor(kind: DiffLineKind): auto =
+  ## Map diff line kind to a display color.
+  case kind
+  of DiffLineHeader:
+    UserMessageColor
+  of DiffLineHunk:
+    WhiteColor
+  of DiffLineMeta:
+    TextSecondaryColor
+  of DiffLineAdded:
+    AIMessageColor
+  of DiffLineRemoved:
+    UserMessageColor
+  of DiffLineContext:
+    TextPrimaryColor
+  of DiffLineEmpty:
+    TextPrimaryColor
 
 
+proc drawGitDiffPanel(panelRect: Rect) =
+  ## Draw the Git Diff panel content.
+  let contentRect = drawPanelShell("Git Diff", panelRect)
+  let font = sk.atlas.fonts["Default"]
+  let lineHeight = font.lineHeight + 3
+
+  discard sk.drawText("Default", currentDiffStatus, vec2(contentRect.x + 2, contentRect.y + 2), TextSecondaryColor)
+  let diffRect = rect(
+    contentRect.x,
+    contentRect.y + lineHeight + 4,
+    contentRect.w,
+    contentRect.h - lineHeight - 4
+  )
+
+  frame("git_diff_history", diffRect.xy, diffRect.wh):
+    if currentDiffLines.len == 0:
+      discard sk.drawText("Default", "No unstaged changes.", sk.at, TextSecondaryColor)
+      sk.advance(vec2(0, lineHeight))
     else:
-      discard sk.drawText("H1", activePanel.name, sk.at, TextPrimaryColor)
-      sk.at.y += 40
-      discard sk.drawText("Default", "This is the content of " & activePanel.name, sk.at, TextPrimaryColor)
+      for line in currentDiffLines:
+        discard sk.drawText("Default", line.text, sk.at, diffLineColor(line.kind))
+        sk.advance(vec2(0, lineHeight))
 
-# Initialize panel layout
-var
-  aiChatArea = Area()
+proc drawChatPanel(panelRect: Rect) =
+  ## Draw the AI chat panel content.
+  let contentRect = drawPanelShell("AI Chat", panelRect)
+  let inputBoxWidth = contentRect.w
+  let inputBoxPadding = vec2(8, 8)
+  let font = sk.atlas.fonts["Default"]
+  let lineHeight = font.lineHeight
+  let minInputHeight = lineHeight + inputBoxPadding.y * 2
+  let framePadding = sk.theme.padding.float32
+  let textSize = sk.getTextSize("Default", currentInput)
+  let inputBoxHeight = max(minInputHeight, textSize.y + inputBoxPadding.y * 2)
+  let togglesHeight = lineHeight * 2 + ToolTogglesSpacing * 3
+  let chatHistoryHeight = contentRect.h - inputBoxHeight - togglesHeight - 10
+  let historyRect = rect(contentRect.x, contentRect.y, contentRect.w, chatHistoryHeight)
+  let togglesRect = rect(
+    contentRect.x,
+    historyRect.y + historyRect.h + ToolTogglesSpacing,
+    contentRect.w,
+    togglesHeight - ToolTogglesSpacing
+  )
 
-aiChatArea.addPanel("AI Chat")
+  var renderedContentHeight = framePadding
+  frame("chat_history", historyRect.xy, historyRect.wh):
+    for message in chatMessages:
+      let senderColor = if message.sender == "User": UserMessageColor else: AIMessageColor
+      let senderText = message.sender & ": "
+      let senderTextSize = sk.drawText("Default", senderText, sk.at, senderColor)
+      sk.at.x += senderTextSize.x
+
+      let maxContentWidth = max(historyRect.w - senderTextSize.x - framePadding - 10, 1.0f)
+      let contentTextSize = sk.drawText(
+        "Default",
+        message.content,
+        sk.at,
+        TextPrimaryColor,
+        maxWidth = maxContentWidth,
+        wordWrap = true
+      )
+
+      let messageHeight = max(senderTextSize.y, contentTextSize.y) + 5
+      renderedContentHeight += messageHeight
+      sk.advance(vec2(0, messageHeight))
+      sk.at.x = sk.pos.x + framePadding
+
+  if shouldAutoScrollChat and "chat_history" in frameStates:
+    let frameState = frameStates["chat_history"]
+    let totalContentHeight = renderedContentHeight + framePadding + 16
+    let scrollMax = max(totalContentHeight - historyRect.h, 0.0f)
+    if scrollMax > 0:
+      frameState.scrollPos.y = scrollMax
+    shouldAutoScrollChat = false
+
+  sk.pushClipRect(togglesRect)
+  sk.at = vec2(togglesRect.x + framePadding, togglesRect.y + ToolTogglesSpacing)
+  checkBox("Read-only tools", readToolsEnabled)
+  checkBox("YOLO mode (read + write tools)", yoloModeEnabled)
+  if yoloModeEnabled:
+    readToolsEnabled = true
+  if not readToolsEnabled:
+    yoloModeEnabled = false
+  sk.popClipRect()
+
+  let inputRect = rect(contentRect.x, contentRect.y + contentRect.h - inputBoxHeight, inputBoxWidth, inputBoxHeight)
+  let bgColor = if isAiResponding: BorderColor else: WhiteColor
+  sk.draw9Patch("frame.9patch", 6, inputRect.xy, inputRect.wh, bgColor)
+
+  if isAiResponding:
+    sk.pushClipRect(rect(inputRect.x + 1, inputRect.y + 1, inputRect.w - 2, inputRect.h - 2))
+    sk.at = inputRect.xy + inputBoxPadding
+    discard sk.drawText("Default", "AI is typing...", sk.at, TextSecondaryColor)
+    sk.popClipRect()
+  else:
+    sk.at = inputRect.xy
+    sk.textBox(
+      window,
+      inputId,
+      currentInput,
+      inputRect.w,
+      inputRect.h,
+      wrapWords = true
+    )
 
 window.runeInputEnabled = true
 window.onRune = proc(rune: Rune) =
@@ -236,6 +224,7 @@ window.onFrame = proc() =
       chatMessages.add(ChatMessage(sender: "User", content: currentInput, timestamp: epochTime()))
       shouldAutoScrollChat = true  # Auto-scroll when user sends message
       pendingAiMessages = chatMessages
+      diffNeedsRefresh = true
 
       # Start AI streaming response - add empty message to chatMessages immediately
       isAiResponding = true
@@ -263,17 +252,29 @@ window.onFrame = proc() =
       # Stream is complete
       isAiResponding = false
       currentAiStream = none(TyposResponseStream)
+      diffNeedsRefresh = true
 
   sk.beginUI(window, window.size)
 
   # Clear screen with background color
   sk.clearScreen(BackgroundColor)
 
-  # Full-window AI Chat layout
-  let windowRect = rect(0, 1, window.size.x.float32, window.size.y.float32 - 1)
+  if diffNeedsRefresh:
+    refreshGitDiff()
+    diffNeedsRefresh = false
 
-  # AI Chat panel (full window)
-  drawArea(aiChatArea, windowRect)
+  # Split layout: Git Diff on left, AI chat on right.
+  let windowRect = rect(0, 1, window.size.x.float32, window.size.y.float32 - 1)
+  let leftPaneWidth = (windowRect.w - PaneGap) * DiffPaneRatio
+  let leftRect = rect(windowRect.x, windowRect.y, leftPaneWidth, windowRect.h)
+  let rightRect = rect(
+    windowRect.x + leftPaneWidth + PaneGap,
+    windowRect.y,
+    windowRect.w - leftPaneWidth - PaneGap,
+    windowRect.h
+  )
+  drawGitDiffPanel(leftRect)
+  drawChatPanel(rightRect)
 
 
   sk.endUi()
@@ -281,7 +282,12 @@ window.onFrame = proc() =
 
   if pendingAiStart:
     # Start the stream after presenting one frame so the cleared input is visible immediately.
-    currentAiStream = some(agents.responses_chat.sendMessage(pendingAiMessages))
+    currentAiStream = if yoloModeEnabled:
+      some(agents.responses_chat.sendMessageWithReadWriteTools(pendingAiMessages))
+    elif readToolsEnabled:
+      some(agents.responses_chat.sendMessageWithReadTools(pendingAiMessages))
+    else:
+      some(agents.responses_chat.sendMessage(pendingAiMessages))
     pendingAiStart = false
 
 when defined(emscripten):

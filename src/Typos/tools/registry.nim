@@ -353,6 +353,11 @@ proc getTyposReadTools*(): ResponseToolsTable =
     parameters: option(%*{"type": "object", "properties": {"working_dir": {"type": "string"}}, "required": []})
   ), gitDiff)
 
+
+proc getTyposReadWriteTools*(): ResponseToolsTable =
+  ## Build and return the read+write tool registry for Typoi/Typos.
+  result = getTyposReadTools()
+
   result.register("create_issue", ToolFunction(
     name: "create_issue",
     description: option("Collect issue definition payload"),

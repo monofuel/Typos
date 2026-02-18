@@ -50,9 +50,12 @@ proc printHelp() =
 
 proc streamAssistantResponse(chatMessages: seq[ChatMessage], toolMode: ToolMode): string =
   ## Stream or buffer assistant response with optional read-tools support.
-  let stream = if toolMode == ToolModeReadOnly:
+  let stream = case toolMode
+  of ToolModeReadOnly:
     agents.responses_chat.sendMessageWithReadTools(chatMessages)
-  else:
+  of ToolModeReadWrite:
+    agents.responses_chat.sendMessageWithReadWriteTools(chatMessages)
+  of ToolModeNone:
     agents.responses_chat.sendMessage(chatMessages)
 
   while true:

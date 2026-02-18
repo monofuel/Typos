@@ -38,8 +38,7 @@ suite "read tools":
   test "registry contains all read tools":
     let expected = @[
       "system_pwd", "system_ls", "nim_check", "nimble_test", "nim_version",
-      "find_files", "read_file", "awk", "ripgrep", "git_status",
-      "git_diff", "create_issue"
+      "find_files", "read_file", "awk", "ripgrep", "git_status", "git_diff"
     ]
     for name in expected:
       check tools.hasKey(name)
@@ -151,6 +150,12 @@ suite "read tools":
     let output = callTool(tools, "git_diff", %*{"working_dir": dirPath})
     check output.contains("-a")
     check output.contains("+b")
+
+suite "read+write tools":
+  let tools = getTyposReadWriteTools()
+
+  test "registry includes write tools":
+    check tools.hasKey("create_issue")
 
   test "create_issue":
     clearCollectedIssues()

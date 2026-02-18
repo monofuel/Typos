@@ -114,6 +114,26 @@ proc sendMessageWithReadTools*(chatMessages: seq[ChatMessage]): TyposResponseStr
   )
 
 
+proc sendMessageWithReadWriteTools*(chatMessages: seq[ChatMessage]): TyposResponseStream =
+  ## Run a Responses request with read+write tools and return buffered text output.
+  ensureClientInitialized()
+
+  var req = CreateResponseReq()
+  req.model = activeConfig.model
+  req.input = option(toResponseInputs(chatMessages))
+  let tools = getTyposReadWriteTools()
+  let resp = apiClient.createResponseWithTools(req, tools)
+
+  let bufferedResponse = extractResponseText(resp)
+
+  result = TyposResponseStream(
+    stream: nil,
+    hasEmittedDelta: false,
+    bufferedResponse: bufferedResponse,
+    emittedBuffered: false
+  )
+
+
 proc getNextChunk*(stream: TyposResponseStream): Option[string] =
   ## Get the next text chunk from the Responses API stream.
   if stream.stream.isNil:
