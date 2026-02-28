@@ -8,7 +8,7 @@ An AI text editor using silky.
 ## AI modes
 
 - some AI modes should be strictly read-only, and some will be read-write.
-- Typosx is built to NOT have a bash command. all tools should be built into the agent for safety and ease of correct use.
+- Typos is built to NOT have a bash command. all tools should be built into the agent for safety and ease of correct use.
 
 - plan mode
   - read-only mode. AI uses tools to create a plan and prompt the user for approval.
