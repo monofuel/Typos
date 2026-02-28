@@ -4,6 +4,8 @@ An AI text editor using silky.
 
 - very WIP, don't use yet.
 
+- `typos` is a gui tool using silky for agentic coding.
+- `typoi` is a cli tool for agentic coding at the command line, primarily with a focus for being scripted but also for interactive use.
 
 ## AI modes
 
