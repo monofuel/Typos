@@ -12,6 +12,8 @@ proc providerName*(provider: ProviderKind): string =
     result = OpenAiProviderName
   of ProviderBedrock:
     result = BedrockProviderName
+  of ProviderAnthropic:
+    result = AnthropicProviderName
 
 
 proc parseProviderKind*(name: string): ProviderKind =
@@ -24,10 +26,12 @@ proc parseProviderKind*(name: string): ProviderKind =
     result = ProviderOpenAi
   of "bedrock":
     result = ProviderBedrock
+  of "anthropic", "claude":
+    result = ProviderAnthropic
   else:
     raise newException(
       ValueError,
-      "Unknown provider: " & name & ". Expected lm_studio, openai, or bedrock."
+      "Unknown provider: " & name & ". Expected lm_studio, openai, bedrock, or anthropic."
     )
 
 
@@ -55,6 +59,13 @@ proc defaultProviderConfig*(provider: ProviderKind): ProviderConfig =
       baseUrl: BedrockBaseUrl,
       apiEnvVar: BedrockApiEnvVar
     )
+  of ProviderAnthropic:
+    result = ProviderConfig(
+      provider: ProviderAnthropic,
+      model: AnthropicDefaultModel,
+      baseUrl: AnthropicBaseUrl,
+      apiEnvVar: AnthropicApiEnvVar
+    )
 
 
 proc resolveProviderConfig*(
@@ -73,3 +84,8 @@ proc resolveProviderConfig*(
     result.baseUrl = baseUrlOverride
   if apiEnvVarOverride.len > 0:
     result.apiEnvVar = apiEnvVarOverride
+
+
+proc usesMessagesApi*(provider: ProviderKind): bool =
+  ## Returns true if this provider uses the Anthropic Messages API instead of the Responses API.
+  provider == ProviderAnthropic

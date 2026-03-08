@@ -7,7 +7,7 @@ suite "typoi cli args":
   test "defaults use openai codex and no tools":
     let config = parseCliArgs(@[])
     check config.provider == "openai"
-    check config.model == "gpt-5.1-codex-mini"
+    check config.model == ""
     check config.toolMode == ToolModeNone
     check config.prompt == ""
 
@@ -49,3 +49,7 @@ suite "typoi cli args":
   test "empty piped stdin fails":
     expect(ValueError):
       discard resolveInputSelection("", "   ", false)
+
+  test "anthropic provider can be selected":
+    let config = parseCliArgs(@["--provider=anthropic"])
+    check config.provider == "anthropic"

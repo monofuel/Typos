@@ -7,6 +7,7 @@ import
 type
   TyposResponseStream* = ref object
     stream*: OpenAIResponseStream
+    messageStream*: OpenAIStream  # Messages API stream (Anthropic)
     hasEmittedDelta*: bool
     bufferedResponse*: string
     emittedBuffered*: bool
@@ -80,31 +81,45 @@ proc ensureClientInitialized() =
 
 
 proc sendMessage*(chatMessages: seq[ChatMessage]): TyposResponseStream =
-  ## Start a streaming Responses API request for the current chat history.
+  ## Start a streaming request for the current chat history.
   ensureClientInitialized()
   let req = CreateResponseReq()
   req.model = activeConfig.model
   req.input = option(toResponseInputs(chatMessages))
 
-  result = TyposResponseStream(
-    stream: apiClient.streamResponse(req),
-    hasEmittedDelta: false,
-    bufferedResponse: "",
-    emittedBuffered: false
-  )
+  if activeConfig.provider.usesMessagesApi:
+    var msgReq = toMessageReq(req)
+    result = TyposResponseStream(
+      messageStream: apiClient.streamMessage(msgReq),
+      hasEmittedDelta: false,
+      bufferedResponse: "",
+      emittedBuffered: false
+    )
+  else:
+    result = TyposResponseStream(
+      stream: apiClient.streamResponse(req),
+      hasEmittedDelta: false,
+      bufferedResponse: "",
+      emittedBuffered: false
+    )
 
 
 proc sendMessageWithReadTools*(chatMessages: seq[ChatMessage]): TyposResponseStream =
-  ## Run a Responses request with read-only tools and return buffered text output.
+  ## Run a request with read-only tools and return buffered text output.
   ensureClientInitialized()
 
   var req = CreateResponseReq()
   req.model = activeConfig.model
   req.input = option(toResponseInputs(chatMessages))
   let tools = getTyposReadTools()
-  let resp = apiClient.createResponseWithTools(req, tools)
 
-  let bufferedResponse = extractResponseText(resp)
+  let bufferedResponse = if activeConfig.provider.usesMessagesApi:
+    var msgReq = toMessageReq(req)
+    let resp = apiClient.createMessageWithTools(msgReq, tools)
+    messageText(resp)
+  else:
+    let resp = apiClient.createResponseWithTools(req, tools)
+    extractResponseText(resp)
 
   result = TyposResponseStream(
     stream: nil,
@@ -115,16 +130,21 @@ proc sendMessageWithReadTools*(chatMessages: seq[ChatMessage]): TyposResponseStr
 
 
 proc sendMessageWithReadWriteTools*(chatMessages: seq[ChatMessage]): TyposResponseStream =
-  ## Run a Responses request with read+write tools and return buffered text output.
+  ## Run a request with read+write tools and return buffered text output.
   ensureClientInitialized()
 
   var req = CreateResponseReq()
   req.model = activeConfig.model
   req.input = option(toResponseInputs(chatMessages))
   let tools = getTyposReadWriteTools()
-  let resp = apiClient.createResponseWithTools(req, tools)
 
-  let bufferedResponse = extractResponseText(resp)
+  let bufferedResponse = if activeConfig.provider.usesMessagesApi:
+    var msgReq = toMessageReq(req)
+    let resp = apiClient.createMessageWithTools(msgReq, tools)
+    messageText(resp)
+  else:
+    let resp = apiClient.createResponseWithTools(req, tools)
+    extractResponseText(resp)
 
   result = TyposResponseStream(
     stream: nil,
@@ -135,13 +155,37 @@ proc sendMessageWithReadWriteTools*(chatMessages: seq[ChatMessage]): TyposRespon
 
 
 proc getNextChunk*(stream: TyposResponseStream): Option[string] =
-  ## Get the next text chunk from the Responses API stream.
-  if stream.stream.isNil:
+  ## Get the next text chunk from the streaming response.
+  if stream.stream.isNil and stream.messageStream.isNil:
+    # Buffered response path (tool calling results)
     if not stream.emittedBuffered and stream.bufferedResponse.len > 0:
       stream.emittedBuffered = true
       return option(stream.bufferedResponse)
     return none(string)
 
+  if not stream.messageStream.isNil:
+    # Anthropic Messages API streaming path
+    while true:
+      let eventOpt = stream.messageStream.nextMessageEvent()
+      if eventOpt.isNone:
+        return none(string)
+
+      let event = eventOpt.get()
+      if not event.hasKey("type") or event["type"].kind != JString:
+        continue
+
+      let eventType = event["type"].str
+      if eventType == "content_block_delta":
+        if event.hasKey("delta") and event["delta"].kind == JObject:
+          let delta = event["delta"]
+          if delta.hasKey("text") and delta["text"].kind == JString:
+            let text = delta["text"].str
+            if text.len > 0:
+              stream.hasEmittedDelta = true
+              return option(text)
+    return none(string)
+
+  # Responses API streaming path
   while true:
     let chunkOpt = stream.stream.nextResponseChunk()
     if chunkOpt.isNone:

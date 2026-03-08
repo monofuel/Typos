@@ -63,7 +63,7 @@ proc toolModeName*(toolMode: ToolMode): string =
 proc parseCliArgs*(args: seq[string]): CliConfig =
   ## Parse Typoi CLI arguments into a strongly typed config object.
   result.provider = DefaultProvider
-  result.model = OpenAiDefaultModel
+  result.model = ""
   result.baseUrl = ""
   result.apiEnvVar = ""
   result.prompt = ""

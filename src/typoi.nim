@@ -32,7 +32,7 @@ proc printHelp() =
   ## Print available CLI flags and REPL commands.
   echo "Usage: typoi [options] [--prompt \"text\" | < prompt.txt]"
   echo "Options:"
-  echo "  --provider=NAME      openai | lm_studio | bedrock"
+  echo "  --provider=NAME      openai | anthropic | lm_studio | bedrock"
   echo "  --model=MODEL        Override model name"
   echo "  --api-env-var=NAME   Override API key environment variable"
   echo "  --base-url=URL       Override provider base URL"
