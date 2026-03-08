@@ -19,6 +19,8 @@ const
 
 var collectedIssues*: seq[JsonNode] = @[]
 
+var activeToolEventCallback*: proc(name: string, args: JsonNode, output: string) {.closure.}
+
 
 proc defaultFileExists(path: string): bool =
   ## Check whether a file exists on disk.
@@ -77,6 +79,38 @@ proc setToolOps*(ops: ToolOps) =
 proc resetToolOps*() =
   ## Reset tool operation handlers to default filesystem-backed operations.
   activeToolOps = defaultToolOps
+
+
+proc setToolEventCallback*(
+  callback: proc(name: string, args: JsonNode, output: string) {.closure.}
+) =
+  ## Set a callback that receives tool execution events.
+  activeToolEventCallback = callback
+
+
+proc clearToolEventCallback*() =
+  ## Clear the active tool execution callback.
+  activeToolEventCallback = nil
+
+
+proc notifyToolEvent(name: string, args: JsonNode, output: string) =
+  ## Notify the active callback after a tool finishes execution.
+  if not activeToolEventCallback.isNil:
+    activeToolEventCallback(name, args, output)
+
+
+template registerTyposTool(
+  tools: ResponseToolsTable,
+  toolName: string,
+  toolFunction: ToolFunction,
+  impl: untyped
+) =
+  ## Register a tool and wrap it with optional event notification.
+  tools.register(toolName, toolFunction, proc(args: JsonNode): string =
+    let output = impl(args)
+    notifyToolEvent(toolName, args, output)
+    return output
+  )
 
 
 proc validateToolArgs(args: JsonNode, toolName: string, requiredParams: seq[string]): string =
@@ -696,19 +730,19 @@ proc getTyposReadTools*(): ResponseToolsTable =
   ## Build and return the read-only tool registry for Typoi/Typos.
   result = newResponseToolsTable()
 
-  result.register("system_pwd", ToolFunction(
+  result.registerTyposTool("system_pwd", ToolFunction(
     name: "system_pwd",
     description: option("Get the current working directory"),
     parameters: option(%*{"type": "object", "properties": {"working_dir": {"type": "string"}}, "required": []})
   ), systemPwd)
 
-  result.register("system_ls", ToolFunction(
+  result.registerTyposTool("system_ls", ToolFunction(
     name: "system_ls",
     description: option("List directory contents"),
     parameters: option(%*{"type": "object", "properties": {"path": {"type": "string"}, "working_dir": {"type": "string"}}, "required": ["path"]})
   ), systemLs)
 
-  result.register("nim_check", ToolFunction(
+  result.registerTyposTool("nim_check", ToolFunction(
     name: "nim_check",
     description: option("Run nim check on Nim source files"),
     parameters: option(%*{
@@ -723,55 +757,55 @@ proc getTyposReadTools*(): ResponseToolsTable =
     })
   ), nimCheck)
 
-  result.register("nimble_test", ToolFunction(
+  result.registerTyposTool("nimble_test", ToolFunction(
     name: "nimble_test",
     description: option("Run nimble test"),
     parameters: option(%*{"type": "object", "properties": {"working_dir": {"type": "string"}}, "required": []})
   ), nimbleTest)
 
-  result.register("nim_version", ToolFunction(
+  result.registerTyposTool("nim_version", ToolFunction(
     name: "nim_version",
     description: option("Get Nim version"),
     parameters: option(%*{"type": "object", "properties": {"working_dir": {"type": "string"}}, "required": []})
   ), nimVersion)
 
-  result.register("find_files", ToolFunction(
+  result.registerTyposTool("find_files", ToolFunction(
     name: "find_files",
     description: option("Find files by regex over full file paths"),
     parameters: option(%*{"type": "object", "properties": {"path": {"type": "string"}, "regex": {"type": "string"}, "recursive": {"type": "boolean"}}, "required": []})
   ), findFiles)
 
-  result.register("read_file", ToolFunction(
+  result.registerTyposTool("read_file", ToolFunction(
     name: "read_file",
     description: option("Read file contents"),
     parameters: option(%*{"type": "object", "properties": {"file_path": {"type": "string"}}, "required": ["file_path"]})
   ), readFileTool)
 
-  result.register("awk", ToolFunction(
+  result.registerTyposTool("awk", ToolFunction(
     name: "awk",
     description: option("Run awk script against file"),
     parameters: option(%*{"type": "object", "properties": {"file_path": {"type": "string"}, "awk_script": {"type": "string"}, "working_dir": {"type": "string"}}, "required": ["file_path", "awk_script"]})
   ), awkTool)
 
-  result.register("ripgrep", ToolFunction(
+  result.registerTyposTool("ripgrep", ToolFunction(
     name: "ripgrep",
     description: option("Search file contents with ripgrep"),
     parameters: option(%*{"type": "object", "properties": {"pattern": {"type": "string"}, "path": {"type": "string"}, "working_dir": {"type": "string"}, "ignore_case": {"type": "boolean"}, "line_numbers": {"type": "boolean"}, "max_count": {"type": "integer"}}, "required": ["pattern"]})
   ), ripgrepTool)
 
-  result.register("git_status", ToolFunction(
+  result.registerTyposTool("git_status", ToolFunction(
     name: "git_status",
     description: option("Get git status"),
     parameters: option(%*{"type": "object", "properties": {"working_dir": {"type": "string"}}, "required": []})
   ), gitStatus)
 
-  result.register("git_diff", ToolFunction(
+  result.registerTyposTool("git_diff", ToolFunction(
     name: "git_diff",
     description: option("Get unstaged git diff"),
     parameters: option(%*{"type": "object", "properties": {"working_dir": {"type": "string"}}, "required": []})
   ), gitDiff)
 
-  result.register("git_log", ToolFunction(
+  result.registerTyposTool("git_log", ToolFunction(
     name: "git_log",
     description: option("Show recent git log entries"),
     parameters: option(%*{
@@ -785,13 +819,13 @@ proc getTyposReadTools*(): ResponseToolsTable =
     })
   ), gitLog)
 
-  result.register("git_diff_staged", ToolFunction(
+  result.registerTyposTool("git_diff_staged", ToolFunction(
     name: "git_diff_staged",
     description: option("Get staged git diff"),
     parameters: option(%*{"type": "object", "properties": {"working_dir": {"type": "string"}}, "required": []})
   ), gitDiffStaged)
 
-  result.register("git_show", ToolFunction(
+  result.registerTyposTool("git_show", ToolFunction(
     name: "git_show",
     description: option("Show a git object (commit or file at ref)"),
     parameters: option(%*{
@@ -805,7 +839,7 @@ proc getTyposReadTools*(): ResponseToolsTable =
     })
   ), gitShow)
 
-  result.register("git_branch", ToolFunction(
+  result.registerTyposTool("git_branch", ToolFunction(
     name: "git_branch",
     description: option("List git branches"),
     parameters: option(%*{"type": "object", "properties": {"working_dir": {"type": "string"}}, "required": []})
@@ -816,67 +850,67 @@ proc getTyposReadWriteTools*(): ResponseToolsTable =
   ## Build and return the read+write tool registry for Typoi/Typos.
   result = getTyposReadTools()
 
-  result.register("write_file", ToolFunction(
+  result.registerTyposTool("write_file", ToolFunction(
     name: "write_file",
     description: option("Write full file contents"),
     parameters: option(%*{"type": "object", "properties": {"file_path": {"type": "string"}, "content": {"type": "string"}, "overwrite": {"type": "boolean"}}, "required": ["file_path", "content"]})
   ), writeFileTool)
 
-  result.register("append_file", ToolFunction(
+  result.registerTyposTool("append_file", ToolFunction(
     name: "append_file",
     description: option("Append content to file"),
     parameters: option(%*{"type": "object", "properties": {"file_path": {"type": "string"}, "content": {"type": "string"}}, "required": ["file_path", "content"]})
   ), appendFileTool)
 
-  result.register("replace_in_file", ToolFunction(
+  result.registerTyposTool("replace_in_file", ToolFunction(
     name: "replace_in_file",
     description: option("Replace content inside file text"),
     parameters: option(%*{"type": "object", "properties": {"file_path": {"type": "string"}, "old_text": {"type": "string"}, "new_text": {"type": "string"}, "replace_all": {"type": "boolean"}}, "required": ["file_path", "old_text", "new_text"]})
   ), replaceInFileTool)
 
-  result.register("create_directory", ToolFunction(
+  result.registerTyposTool("create_directory", ToolFunction(
     name: "create_directory",
     description: option("Create directory"),
     parameters: option(%*{"type": "object", "properties": {"dir_path": {"type": "string"}}, "required": ["dir_path"]})
   ), createDirectoryTool)
 
-  result.register("delete_file", ToolFunction(
+  result.registerTyposTool("delete_file", ToolFunction(
     name: "delete_file",
     description: option("Delete file"),
     parameters: option(%*{"type": "object", "properties": {"file_path": {"type": "string"}}, "required": ["file_path"]})
   ), deleteFileTool)
 
-  result.register("move_file", ToolFunction(
+  result.registerTyposTool("move_file", ToolFunction(
     name: "move_file",
     description: option("Move or rename a file"),
     parameters: option(%*{"type": "object", "properties": {"source": {"type": "string"}, "destination": {"type": "string"}}, "required": ["source", "destination"]})
   ), moveFileTool)
 
-  result.register("sed_edit", ToolFunction(
+  result.registerTyposTool("sed_edit", ToolFunction(
     name: "sed_edit",
     description: option("Run sed in-place edit on a file"),
     parameters: option(%*{"type": "object", "properties": {"file_path": {"type": "string"}, "sed_script": {"type": "string"}, "working_dir": {"type": "string"}}, "required": ["file_path", "sed_script"]})
   ), sedEditTool)
 
-  result.register("insert_lines", ToolFunction(
+  result.registerTyposTool("insert_lines", ToolFunction(
     name: "insert_lines",
     description: option("Insert lines after a given line number (0 for beginning)"),
     parameters: option(%*{"type": "object", "properties": {"file_path": {"type": "string"}, "after_line": {"type": "integer"}, "content": {"type": "string"}}, "required": ["file_path", "after_line", "content"]})
   ), insertLinesTool)
 
-  result.register("delete_lines", ToolFunction(
+  result.registerTyposTool("delete_lines", ToolFunction(
     name: "delete_lines",
     description: option("Delete a range of lines (1-based, inclusive)"),
     parameters: option(%*{"type": "object", "properties": {"file_path": {"type": "string"}, "start_line": {"type": "integer"}, "end_line": {"type": "integer"}}, "required": ["file_path", "start_line", "end_line"]})
   ), deleteLinesTool)
 
-  result.register("replace_lines", ToolFunction(
+  result.registerTyposTool("replace_lines", ToolFunction(
     name: "replace_lines",
     description: option("Replace a range of lines (1-based, inclusive) with new content"),
     parameters: option(%*{"type": "object", "properties": {"file_path": {"type": "string"}, "start_line": {"type": "integer"}, "end_line": {"type": "integer"}, "content": {"type": "string"}}, "required": ["file_path", "start_line", "end_line", "content"]})
   ), replaceLinesTool)
 
-  result.register("create_issue", ToolFunction(
+  result.registerTyposTool("create_issue", ToolFunction(
     name: "create_issue",
     description: option("Collect issue definition payload"),
     parameters: option(%*{
@@ -895,7 +929,7 @@ proc getTyposReadWriteTools*(): ResponseToolsTable =
     })
   ), createIssueTool)
 
-  result.register("git_add", ToolFunction(
+  result.registerTyposTool("git_add", ToolFunction(
     name: "git_add",
     description: option("Stage files for commit"),
     parameters: option(%*{
@@ -908,7 +942,7 @@ proc getTyposReadWriteTools*(): ResponseToolsTable =
     })
   ), gitAdd)
 
-  result.register("git_commit", ToolFunction(
+  result.registerTyposTool("git_commit", ToolFunction(
     name: "git_commit",
     description: option("Create a git commit"),
     parameters: option(%*{
@@ -921,7 +955,7 @@ proc getTyposReadWriteTools*(): ResponseToolsTable =
     })
   ), gitCommit)
 
-  result.register("git_restore", ToolFunction(
+  result.registerTyposTool("git_restore", ToolFunction(
     name: "git_restore",
     description: option("Restore files (discard changes or unstage)"),
     parameters: option(%*{

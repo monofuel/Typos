@@ -15,6 +15,10 @@ suite "typoi cli args":
     let config = parseCliArgs(@["--read-tools"])
     check config.toolMode == ToolModeReadOnly
 
+  test "json stream can be selected":
+    let config = parseCliArgs(@["--json-stream"])
+    check config.outputMode == OutputModeJsonStream
+
   test "yolo takes precedence over read tools":
     let config = parseCliArgs(@["--read-tools", "--yolo"])
     check config.toolMode == ToolModeReadWrite

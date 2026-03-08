@@ -11,6 +11,7 @@ type
 
 
 var mockFs: MockFsState
+var observedToolEvents: seq[(string, string)]
 
 
 proc callTool(tools: ResponseToolsTable, name: string, args: JsonNode): string =
@@ -79,6 +80,11 @@ proc installMockOps() =
   )
 
 
+proc recordToolEvent(name: string, args: JsonNode, output: string) =
+  ## Capture tool callback output for assertions.
+  observedToolEvents.add((name, output))
+
+
 suite "write tools":
   let tools = getTyposReadWriteTools()
 
@@ -86,9 +92,12 @@ suite "write tools":
     resetMockFs()
     installMockOps()
     clearCollectedIssues()
+    observedToolEvents.setLen(0)
+    setToolEventCallback(recordToolEvent)
 
   teardown:
     resetToolOps()
+    clearToolEventCallback()
 
   test "registry contains all write tools":
     let expected = @[
@@ -204,6 +213,16 @@ suite "write tools":
       %*{"source": "missing.txt", "destination": "new.txt"}
     )
     check output.contains("Source file does not exist")
+
+  test "tool callback receives tool result":
+    discard callTool(
+      tools,
+      "write_file",
+      %*{"file_path": "doc.txt", "content": "hello"}
+    )
+    check observedToolEvents.len == 1
+    check observedToolEvents[0][0] == "write_file"
+    check observedToolEvents[0][1].contains("Wrote 5 bytes")
 
   test "insert_lines at beginning":
     mockFs.files["f.txt"] = "line1\nline2\n"

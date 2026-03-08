@@ -9,6 +9,10 @@ type
     ToolModeReadOnly
     ToolModeReadWrite
 
+  OutputMode* = enum
+    OutputModeText
+    OutputModeJsonStream
+
   InputMode* = enum
     InputModeOneShot
     InputModeRepl
@@ -20,6 +24,7 @@ type
     apiEnvVar*: string
     prompt*: string
     toolMode*: ToolMode
+    outputMode*: OutputMode
     showHelp*: bool
 
   InputSelection* = object
@@ -68,6 +73,7 @@ proc parseCliArgs*(args: seq[string]): CliConfig =
   result.apiEnvVar = ""
   result.prompt = ""
   result.toolMode = ToolModeNone
+  result.outputMode = OutputModeText
   result.showHelp = false
 
   var parser = initOptParser(args)
@@ -116,6 +122,8 @@ proc parseCliArgs*(args: seq[string]): CliConfig =
           result.toolMode = ToolModeReadOnly
       of "yolo":
         result.toolMode = ToolModeReadWrite
+      of "json-stream":
+        result.outputMode = OutputModeJsonStream
       of "help", "h":
         result.showHelp = true
       else:

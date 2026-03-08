@@ -2,9 +2,9 @@
 ## CLI client for Typos
 
 import
-  std/[options, os, strformat, strutils, terminal, times],
-  ./Typoi/cli_args,
-  ./Typos/[common, provider_config],
+  std/[json, options, os, strformat, strutils, terminal, times],
+  ./Typoi/[cli_args, output],
+  ./Typos/[common, provider_config, tools],
   ./agents
 
 
@@ -37,6 +37,7 @@ proc printHelp() =
   echo "  --api-env-var=NAME   Override API key environment variable"
   echo "  --base-url=URL       Override provider base URL"
   echo "  -p, --prompt=TEXT    One-shot prompt text"
+  echo "  --json-stream        Emit JSONL events to stdout"
   echo "  --read-tools         Enable read-only tool mode"
   echo "  --yolo               Select read+write mode (write tools not implemented yet)"
   echo "  -h, --help           Show help"
@@ -48,8 +49,19 @@ proc printHelp() =
   echo ""
 
 
-proc streamAssistantResponse(chatMessages: seq[ChatMessage], toolMode: ToolMode): string =
+proc streamAssistantResponse(
+  chatMessages: seq[ChatMessage],
+  toolMode: ToolMode,
+  emitter: CliOutputEmitter
+): string =
   ## Stream or buffer assistant response with optional read-tools support.
+  if emitter.outputMode == OutputModeJsonStream:
+    setToolEventCallback(proc(name: string, args: JsonNode, output: string) =
+      emitter.emitTool(name, output)
+    )
+    defer:
+      clearToolEventCallback()
+
   let stream = case toolMode
   of ToolModeReadOnly:
     agents.responses_chat.sendMessageWithReadTools(chatMessages)
@@ -63,15 +75,20 @@ proc streamAssistantResponse(chatMessages: seq[ChatMessage], toolMode: ToolMode)
     if chunk.isSome:
       let content = chunk.get()
       result &= content
-      stdout.write(content)
-      stdout.flushFile()
+      emitter.emitMessage(content)
     else:
       break
 
 
-proc runOneShot(config: ProviderConfig, prompt: string, toolMode: ToolMode) =
+proc runOneShot(
+  config: ProviderConfig,
+  prompt: string,
+  toolMode: ToolMode,
+  emitter: CliOutputEmitter
+) =
   ## Run a single prompt-response exchange and exit.
   agents.responses_chat.initClient(config)
+  emitter.emitStatus("ready")
 
   var chatMessages: seq[ChatMessage]
   chatMessages.add(
@@ -82,24 +99,29 @@ proc runOneShot(config: ProviderConfig, prompt: string, toolMode: ToolMode) =
     )
   )
 
-  let assistantResponse = streamAssistantResponse(chatMessages, toolMode)
-  if assistantResponse.len > 0 and not assistantResponse.endsWith("\n"):
-    echo ""
+  let assistantResponse = streamAssistantResponse(chatMessages, toolMode, emitter)
+  emitter.ensureTrailingNewline(assistantResponse)
+  emitter.emitStatus("done")
 
 
-proc runRepl(config: ProviderConfig, toolMode: ToolMode) =
+proc runRepl(config: ProviderConfig, toolMode: ToolMode, emitter: CliOutputEmitter) =
   ## Run interactive chat REPL mode.
   var chatMessages: seq[ChatMessage]
   agents.responses_chat.initClient(config)
-  printBanner(config, toolMode)
+  emitter.emitStatus("ready")
+  if emitter.wantsInteractiveText():
+    printBanner(config, toolMode)
 
   while true:
-    stdout.write("You: ")
-    stdout.flushFile()
+    if emitter.wantsInteractiveText():
+      stdout.write("You: ")
+      stdout.flushFile()
 
     var rawInput = ""
     if not stdin.readLine(rawInput):
-      echo ""
+      if emitter.wantsInteractiveText():
+        echo ""
+      emitter.emitStatus("done")
       break
 
     let userInput = rawInput.strip()
@@ -110,12 +132,14 @@ proc runRepl(config: ProviderConfig, toolMode: ToolMode) =
     of ExitCommand, QuitCommand:
       break
     of HelpCommand:
-      printHelp()
+      if emitter.wantsInteractiveText():
+        printHelp()
       continue
     of ClearCommand:
       chatMessages.setLen(0)
-      echo "Conversation cleared."
-      echo ""
+      if emitter.wantsInteractiveText():
+        echo "Conversation cleared."
+        echo ""
       continue
     else:
       discard
@@ -128,11 +152,13 @@ proc runRepl(config: ProviderConfig, toolMode: ToolMode) =
       )
     )
 
-    stdout.write("Assistant: ")
-    stdout.flushFile()
-    let assistantResponse = streamAssistantResponse(chatMessages, toolMode)
-    echo ""
-    echo ""
+    if emitter.wantsInteractiveText():
+      stdout.write("Assistant: ")
+      stdout.flushFile()
+    let assistantResponse = streamAssistantResponse(chatMessages, toolMode, emitter)
+    if emitter.wantsInteractiveText():
+      echo ""
+      echo ""
 
     chatMessages.add(
       ChatMessage(
@@ -149,6 +175,8 @@ proc main() =
   if cliConfig.showHelp:
     printHelp()
     quit(0)
+  let emitter = newCliOutputEmitter(cliConfig.outputMode)
+  emitter.emitStatus("init")
 
   let providerConfig = resolveProviderConfig(
     cliConfig.provider,
@@ -163,9 +191,9 @@ proc main() =
 
   case inputSelection.mode
   of InputModeOneShot:
-    runOneShot(providerConfig, inputSelection.prompt, cliConfig.toolMode)
+    runOneShot(providerConfig, inputSelection.prompt, cliConfig.toolMode, emitter)
   of InputModeRepl:
-    runRepl(providerConfig, cliConfig.toolMode)
+    runRepl(providerConfig, cliConfig.toolMode, emitter)
 
 
 when isMainModule:
