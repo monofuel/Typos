@@ -57,6 +57,13 @@ proc mockRemoveFile(path: string) =
     mockFs.files.del(path)
 
 
+proc mockMoveFile(source, dest: string) =
+  ## Move a mocked file (copy content, delete source).
+  if mockFs.files.hasKey(source):
+    mockFs.files[dest] = mockFs.files[source]
+    mockFs.files.del(source)
+
+
 proc installMockOps() =
   ## Install mocked tool ops for isolated write-tool testing.
   setToolOps(
@@ -66,7 +73,8 @@ proc installMockOps() =
       readFile: mockReadFile,
       writeFile: mockWriteFile,
       createDir: mockCreateDir,
-      removeFile: mockRemoveFile
+      removeFile: mockRemoveFile,
+      moveFile: mockMoveFile
     )
   )
 
@@ -85,7 +93,8 @@ suite "write tools":
   test "registry contains all write tools":
     let expected = @[
       "write_file", "append_file", "replace_in_file",
-      "create_directory", "delete_file", "create_issue"
+      "create_directory", "delete_file", "create_issue",
+      "move_file", "sed_edit", "insert_lines", "delete_lines", "replace_lines"
     ]
     for name in expected:
       check tools.hasKey(name)
@@ -175,3 +184,127 @@ suite "write tools":
     check output.contains("Issue definition collected")
     check issues.len == 1
     check issues[0]["title"].getStr == "Bug title"
+
+  test "move_file moves a file":
+    mockFs.files["old.txt"] = "data"
+    let output = callTool(
+      tools,
+      "move_file",
+      %*{"source": "old.txt", "destination": "new.txt"}
+    )
+    check output.contains("Moved old.txt to new.txt")
+    check not mockFs.files.hasKey("old.txt")
+    check mockFs.files["new.txt"] == "data"
+
+  test "move_file source not found":
+    let output = callTool(
+      tools,
+      "move_file",
+      %*{"source": "missing.txt", "destination": "new.txt"}
+    )
+    check output.contains("Source file does not exist")
+
+  test "insert_lines at beginning":
+    mockFs.files["f.txt"] = "line1\nline2\n"
+    let output = callTool(
+      tools,
+      "insert_lines",
+      %*{"file_path": "f.txt", "after_line": 0, "content": "header"}
+    )
+    check output.contains("Inserted 1 line(s)")
+    check mockFs.files["f.txt"] == "header\nline1\nline2\n"
+
+  test "insert_lines in middle":
+    mockFs.files["f.txt"] = "a\nb\nc\n"
+    let output = callTool(
+      tools,
+      "insert_lines",
+      %*{"file_path": "f.txt", "after_line": 2, "content": "x\ny"}
+    )
+    check output.contains("Inserted 2 line(s)")
+    check mockFs.files["f.txt"] == "a\nb\nx\ny\nc\n"
+
+  test "insert_lines at end":
+    mockFs.files["f.txt"] = "a\nb\n"
+    let output = callTool(
+      tools,
+      "insert_lines",
+      %*{"file_path": "f.txt", "after_line": 2, "content": "c"}
+    )
+    check output.contains("Inserted 1 line(s)")
+    check mockFs.files["f.txt"] == "a\nb\nc\n"
+
+  test "insert_lines out of range":
+    mockFs.files["f.txt"] = "a\n"
+    let output = callTool(
+      tools,
+      "insert_lines",
+      %*{"file_path": "f.txt", "after_line": 5, "content": "x"}
+    )
+    check output.contains("out of range")
+
+  test "delete_lines single line":
+    mockFs.files["f.txt"] = "a\nb\nc\n"
+    let output = callTool(
+      tools,
+      "delete_lines",
+      %*{"file_path": "f.txt", "start_line": 2, "end_line": 2}
+    )
+    check output.contains("Deleted 1 line(s)")
+    check mockFs.files["f.txt"] == "a\nc\n"
+
+  test "delete_lines range":
+    mockFs.files["f.txt"] = "a\nb\nc\nd\n"
+    let output = callTool(
+      tools,
+      "delete_lines",
+      %*{"file_path": "f.txt", "start_line": 2, "end_line": 3}
+    )
+    check output.contains("Deleted 2 line(s)")
+    check mockFs.files["f.txt"] == "a\nd\n"
+
+  test "delete_lines invalid range":
+    mockFs.files["f.txt"] = "a\nb\n"
+    let output = callTool(
+      tools,
+      "delete_lines",
+      %*{"file_path": "f.txt", "start_line": 3, "end_line": 2}
+    )
+    check output.contains("Invalid line range")
+
+  test "replace_lines single line":
+    mockFs.files["f.txt"] = "a\nb\nc\n"
+    let output = callTool(
+      tools,
+      "replace_lines",
+      %*{"file_path": "f.txt", "start_line": 2, "end_line": 2, "content": "B"}
+    )
+    check output.contains("Replaced lines 2..2")
+    check mockFs.files["f.txt"] == "a\nB\nc\n"
+
+  test "replace_lines range with different line count":
+    mockFs.files["f.txt"] = "a\nb\nc\nd\n"
+    let output = callTool(
+      tools,
+      "replace_lines",
+      %*{"file_path": "f.txt", "start_line": 2, "end_line": 3, "content": "X"}
+    )
+    check output.contains("Replaced lines 2..3")
+    check mockFs.files["f.txt"] == "a\nX\nd\n"
+
+  test "replace_lines invalid range":
+    mockFs.files["f.txt"] = "a\nb\n"
+    let output = callTool(
+      tools,
+      "replace_lines",
+      %*{"file_path": "f.txt", "start_line": 3, "end_line": 2, "content": "x"}
+    )
+    check output.contains("Invalid line range")
+
+  test "sed_edit validates required params":
+    let output = callTool(
+      tools,
+      "sed_edit",
+      %*{"file_path": "f.txt"}
+    )
+    check output.contains("Missing required parameter")

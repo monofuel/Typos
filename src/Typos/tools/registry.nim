@@ -10,6 +10,7 @@ type
     writeFile*: proc(path: string, content: string)
     createDir*: proc(path: string)
     removeFile*: proc(path: string)
+    moveFile*: proc(source, dest: string)
 
 
 const
@@ -49,13 +50,19 @@ proc defaultRemoveFile(path: string) =
   removeFile(path)
 
 
+proc defaultMoveFile(source, dest: string) =
+  ## Move a file on disk.
+  moveFile(source, dest)
+
+
 let defaultToolOps = ToolOps(
   fileExists: defaultFileExists,
   dirExists: defaultDirExists,
   readFile: defaultReadFile,
   writeFile: defaultWriteFile,
   createDir: defaultCreateDir,
-  removeFile: defaultRemoveFile
+  removeFile: defaultRemoveFile,
+  moveFile: defaultMoveFile
 )
 
 
@@ -99,6 +106,35 @@ proc truncateToolOutput(output: string, toolName: string): string =
     let truncated = output[0..<MaxToolOutputChars]
     return truncated & &"\n\n[TRUNCATED: Output was {output.len} chars for {toolName}]"
   return output
+
+
+proc splitContentLines(content: string): seq[string] =
+  ## Split content on newlines, stripping trailing empty element from trailing newline.
+  result = content.split('\n')
+  if result.len > 0 and result[^1] == "":
+    result.setLen(result.len - 1)
+
+
+proc readFileLines(filePath: string): seq[string] =
+  ## Read a file and return its lines.
+  return splitContentLines(activeToolOps.readFile(filePath))
+
+
+proc joinLinesWithTrailingNewline(lines: seq[string]): string =
+  ## Join lines with newlines, ensuring a trailing newline. Empty seq returns "".
+  if lines.len == 0:
+    return ""
+  return lines.join("\n") & "\n"
+
+
+proc generateSnippet(lines: seq[string], changeStart, changeEnd: int, contextLines = 3): string =
+  ## Generate a numbered snippet showing changed area with context lines.
+  let snippetStart = max(0, changeStart - contextLines)
+  let snippetEnd = min(lines.len - 1, changeEnd + contextLines)
+  var parts: seq[string] = @[]
+  for i in snippetStart..snippetEnd:
+    parts.add(&"{i + 1:4d}| {lines[i]}")
+  return parts.join("\n")
 
 
 proc runProcess(command: string, args: seq[string], workingDir: string): tuple[exitCode: int, output: string] =
@@ -322,6 +358,128 @@ proc deleteFileTool(args: JsonNode): string =
   return &"Deleted file: {filePath}"
 
 
+proc moveFileTool(args: JsonNode): string =
+  ## Move or rename a file.
+  let validationError = validateToolArgs(args, "move_file", @["source", "destination"])
+  if validationError.len > 0:
+    return validationError
+
+  let source = args["source"].getStr
+  let destination = args["destination"].getStr
+  if not activeToolOps.fileExists(source):
+    return &"Source file does not exist: {source}"
+
+  activeToolOps.moveFile(source, destination)
+  return &"Moved {source} to {destination}."
+
+
+proc sedEditTool(args: JsonNode): string =
+  ## Execute sed script against a file (in-place edit).
+  let validationError = validateToolArgs(args, "sed_edit", @["file_path", "sed_script"])
+  if validationError.len > 0:
+    return validationError
+
+  let filePath = args["file_path"].getStr
+  let sedScript = args["sed_script"].getStr
+  let workingDir = resolveWorkingDir(args)
+  let (exitCode, output) = runProcess("sed", @["-i", sedScript, filePath], workingDir)
+  if exitCode == 0:
+    return &"sed edit applied to {filePath}."
+  return &"Error executing sed (exit code {exitCode}): {output}"
+
+
+proc insertLinesTool(args: JsonNode): string =
+  ## Insert lines after a given line number (0 = beginning of file).
+  let validationError = validateToolArgs(args, "insert_lines", @["file_path", "after_line", "content"])
+  if validationError.len > 0:
+    return validationError
+
+  let filePath = args["file_path"].getStr
+  let afterLine = args["after_line"].getInt
+  let content = args["content"].getStr
+
+  if not activeToolOps.fileExists(filePath):
+    return &"File does not exist: {filePath}"
+
+  var lines = readFileLines(filePath)
+  if afterLine < 0 or afterLine > lines.len:
+    return &"after_line {afterLine} is out of range (0..{lines.len})."
+
+  let newLines = splitContentLines(content)
+  let insertPos = afterLine
+  for i, line in newLines:
+    lines.insert(line, insertPos + i)
+
+  activeToolOps.writeFile(filePath, joinLinesWithTrailingNewline(lines))
+  let snippet = generateSnippet(lines, insertPos, insertPos + newLines.len - 1)
+  return &"Inserted {newLines.len} line(s) after line {afterLine} in {filePath}.\n{snippet}"
+
+
+proc deleteLinesTool(args: JsonNode): string =
+  ## Delete a range of lines (1-based, inclusive).
+  let validationError = validateToolArgs(args, "delete_lines", @["file_path", "start_line", "end_line"])
+  if validationError.len > 0:
+    return validationError
+
+  let filePath = args["file_path"].getStr
+  let startLine = args["start_line"].getInt
+  let endLine = args["end_line"].getInt
+
+  if not activeToolOps.fileExists(filePath):
+    return &"File does not exist: {filePath}"
+
+  if startLine < 1 or endLine < startLine:
+    return &"Invalid line range: {startLine}..{endLine}."
+
+  var lines = readFileLines(filePath)
+  if endLine > lines.len:
+    return &"end_line {endLine} exceeds file length ({lines.len} lines)."
+
+  let deletedCount = endLine - startLine + 1
+  let before = lines[0 ..< startLine - 1]
+  let after = if endLine < lines.len: lines[endLine .. ^1] else: @[]
+  lines = before & after
+
+  activeToolOps.writeFile(filePath, joinLinesWithTrailingNewline(lines))
+  if lines.len == 0:
+    return &"Deleted {deletedCount} line(s) from {filePath}. File is now empty."
+  let snippetStart = max(0, startLine - 2)
+  let snippetEnd = min(lines.len - 1, snippetStart + 5)
+  let snippet = generateSnippet(lines, snippetStart, snippetEnd)
+  return &"Deleted {deletedCount} line(s) from {filePath}.\n{snippet}"
+
+
+proc replaceLinesTool(args: JsonNode): string =
+  ## Replace a range of lines (1-based, inclusive) with new content.
+  let validationError = validateToolArgs(args, "replace_lines", @["file_path", "start_line", "end_line", "content"])
+  if validationError.len > 0:
+    return validationError
+
+  let filePath = args["file_path"].getStr
+  let startLine = args["start_line"].getInt
+  let endLine = args["end_line"].getInt
+  let content = args["content"].getStr
+
+  if not activeToolOps.fileExists(filePath):
+    return &"File does not exist: {filePath}"
+
+  if startLine < 1 or endLine < startLine:
+    return &"Invalid line range: {startLine}..{endLine}."
+
+  var lines = readFileLines(filePath)
+  if endLine > lines.len:
+    return &"end_line {endLine} exceeds file length ({lines.len} lines)."
+
+  let newLines = splitContentLines(content)
+  let before = lines[0 ..< startLine - 1]
+  let after = if endLine < lines.len: lines[endLine .. ^1] else: @[]
+  lines = before & newLines & after
+
+  activeToolOps.writeFile(filePath, joinLinesWithTrailingNewline(lines))
+  let snippet = generateSnippet(lines, startLine - 1, startLine - 1 + newLines.len - 1)
+  return &"Replaced lines {startLine}..{endLine} in {filePath}.\n{snippet}"
+
+
 proc awkTool(args: JsonNode): string =
   ## Execute awk script against a file.
   let validationError = validateToolArgs(args, "awk", @["file_path", "awk_script"])
@@ -539,6 +697,36 @@ proc getTyposReadWriteTools*(): ResponseToolsTable =
     description: option("Delete file"),
     parameters: option(%*{"type": "object", "properties": {"file_path": {"type": "string"}}, "required": ["file_path"]})
   ), deleteFileTool)
+
+  result.register("move_file", ToolFunction(
+    name: "move_file",
+    description: option("Move or rename a file"),
+    parameters: option(%*{"type": "object", "properties": {"source": {"type": "string"}, "destination": {"type": "string"}}, "required": ["source", "destination"]})
+  ), moveFileTool)
+
+  result.register("sed_edit", ToolFunction(
+    name: "sed_edit",
+    description: option("Run sed in-place edit on a file"),
+    parameters: option(%*{"type": "object", "properties": {"file_path": {"type": "string"}, "sed_script": {"type": "string"}, "working_dir": {"type": "string"}}, "required": ["file_path", "sed_script"]})
+  ), sedEditTool)
+
+  result.register("insert_lines", ToolFunction(
+    name: "insert_lines",
+    description: option("Insert lines after a given line number (0 for beginning)"),
+    parameters: option(%*{"type": "object", "properties": {"file_path": {"type": "string"}, "after_line": {"type": "integer"}, "content": {"type": "string"}}, "required": ["file_path", "after_line", "content"]})
+  ), insertLinesTool)
+
+  result.register("delete_lines", ToolFunction(
+    name: "delete_lines",
+    description: option("Delete a range of lines (1-based, inclusive)"),
+    parameters: option(%*{"type": "object", "properties": {"file_path": {"type": "string"}, "start_line": {"type": "integer"}, "end_line": {"type": "integer"}}, "required": ["file_path", "start_line", "end_line"]})
+  ), deleteLinesTool)
+
+  result.register("replace_lines", ToolFunction(
+    name: "replace_lines",
+    description: option("Replace a range of lines (1-based, inclusive) with new content"),
+    parameters: option(%*{"type": "object", "properties": {"file_path": {"type": "string"}, "start_line": {"type": "integer"}, "end_line": {"type": "integer"}, "content": {"type": "string"}}, "required": ["file_path", "start_line", "end_line", "content"]})
+  ), replaceLinesTool)
 
   result.register("create_issue", ToolFunction(
     name: "create_issue",
