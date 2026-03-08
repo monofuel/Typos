@@ -544,6 +544,114 @@ proc gitDiff(args: JsonNode): string =
   return &"Error executing git diff (exit code {exitCode}): {output}"
 
 
+proc gitLog(args: JsonNode): string =
+  ## Return recent git log entries.
+  let workingDir = resolveWorkingDir(args)
+  let count = if args.hasKey("count"): args["count"].getInt else: 10
+  var gitArgs = @["log", "--oneline", "-n", $count]
+  if args.hasKey("file_path"):
+    let filePath = args["file_path"].getStr
+    if filePath.len > 0:
+      gitArgs.add("--")
+      gitArgs.add(filePath)
+  let (exitCode, output) = runProcess("git", gitArgs, workingDir)
+  if exitCode == 0:
+    return output.strip()
+  return &"Error executing git log (exit code {exitCode}): {output}"
+
+
+proc gitDiffStaged(args: JsonNode): string =
+  ## Return git diff for staged changes.
+  let workingDir = resolveWorkingDir(args)
+  let (exitCode, output) = runProcess("git", @["diff", "--cached"], workingDir)
+  if exitCode == 0:
+    return output.strip()
+  return &"Error executing git diff --cached (exit code {exitCode}): {output}"
+
+
+proc gitShow(args: JsonNode): string =
+  ## Show a git object (commit, file at ref, etc).
+  let validationError = validateToolArgs(args, "git_show", @["ref"])
+  if validationError.len > 0:
+    return validationError
+
+  let workingDir = resolveWorkingDir(args)
+  let refStr = args["ref"].getStr
+  var target = refStr
+  if args.hasKey("file_path"):
+    let filePath = args["file_path"].getStr
+    if filePath.len > 0:
+      target = refStr & ":" & filePath
+  let (exitCode, output) = runProcess("git", @["show", target], workingDir)
+  if exitCode == 0:
+    return truncateToolOutput(output.strip(), "git_show")
+  return &"Error executing git show (exit code {exitCode}): {output}"
+
+
+proc gitBranch(args: JsonNode): string =
+  ## List git branches.
+  let workingDir = resolveWorkingDir(args)
+  let (exitCode, output) = runProcess("git", @["branch"], workingDir)
+  if exitCode == 0:
+    return output.strip()
+  return &"Error executing git branch (exit code {exitCode}): {output}"
+
+
+proc gitAdd(args: JsonNode): string =
+  ## Stage files for commit.
+  let validationError = validateToolArgs(args, "git_add", @["paths"])
+  if validationError.len > 0:
+    return validationError
+
+  let workingDir = resolveWorkingDir(args)
+  var paths: seq[string] = @[]
+  for pathNode in args["paths"]:
+    paths.add(pathNode.getStr)
+  let (exitCode, output) = runProcess("git", @["add"] & paths, workingDir)
+  if exitCode == 0:
+    return "Staged: " & paths.join(", ")
+  return &"Error executing git add (exit code {exitCode}): {output}"
+
+
+proc gitCommit(args: JsonNode): string =
+  ## Create a git commit.
+  let validationError = validateToolArgs(args, "git_commit", @["message"])
+  if validationError.len > 0:
+    return validationError
+
+  let message = args["message"].getStr
+  if message.strip().len == 0:
+    return "Error: commit message cannot be empty."
+
+  let workingDir = resolveWorkingDir(args)
+  let (exitCode, output) = runProcess("git", @["commit", "-m", message], workingDir)
+  if exitCode == 0:
+    return output.strip()
+  return &"Error executing git commit (exit code {exitCode}): {output}"
+
+
+proc gitRestore(args: JsonNode): string =
+  ## Restore files (discard changes or unstage).
+  let validationError = validateToolArgs(args, "git_restore", @["paths"])
+  if validationError.len > 0:
+    return validationError
+
+  let workingDir = resolveWorkingDir(args)
+  let staged = if args.hasKey("staged"): args["staged"].getBool else: false
+  var paths: seq[string] = @[]
+  for pathNode in args["paths"]:
+    paths.add(pathNode.getStr)
+  var gitArgs = @["restore"]
+  if staged:
+    gitArgs.add("--staged")
+  gitArgs.add(paths)
+  let (exitCode, output) = runProcess("git", gitArgs, workingDir)
+  if exitCode == 0:
+    let action = if staged: "Unstaged" else: "Restored"
+    return action & ": " & paths.join(", ")
+  return &"Error executing git restore (exit code {exitCode}): {output}"
+
+
 proc createIssueTool(args: JsonNode): string =
   ## Collect an issue definition payload for later handling.
   let validationError = validateToolArgs(args, "create_issue", @["title"])
@@ -663,6 +771,46 @@ proc getTyposReadTools*(): ResponseToolsTable =
     parameters: option(%*{"type": "object", "properties": {"working_dir": {"type": "string"}}, "required": []})
   ), gitDiff)
 
+  result.register("git_log", ToolFunction(
+    name: "git_log",
+    description: option("Show recent git log entries"),
+    parameters: option(%*{
+      "type": "object",
+      "properties": {
+        "count": {"type": "integer"},
+        "file_path": {"type": "string"},
+        "working_dir": {"type": "string"}
+      },
+      "required": []
+    })
+  ), gitLog)
+
+  result.register("git_diff_staged", ToolFunction(
+    name: "git_diff_staged",
+    description: option("Get staged git diff"),
+    parameters: option(%*{"type": "object", "properties": {"working_dir": {"type": "string"}}, "required": []})
+  ), gitDiffStaged)
+
+  result.register("git_show", ToolFunction(
+    name: "git_show",
+    description: option("Show a git object (commit or file at ref)"),
+    parameters: option(%*{
+      "type": "object",
+      "properties": {
+        "ref": {"type": "string"},
+        "file_path": {"type": "string"},
+        "working_dir": {"type": "string"}
+      },
+      "required": ["ref"]
+    })
+  ), gitShow)
+
+  result.register("git_branch", ToolFunction(
+    name: "git_branch",
+    description: option("List git branches"),
+    parameters: option(%*{"type": "object", "properties": {"working_dir": {"type": "string"}}, "required": []})
+  ), gitBranch)
+
 
 proc getTyposReadWriteTools*(): ResponseToolsTable =
   ## Build and return the read+write tool registry for Typoi/Typos.
@@ -746,3 +894,43 @@ proc getTyposReadWriteTools*(): ResponseToolsTable =
       "required": ["title"]
     })
   ), createIssueTool)
+
+  result.register("git_add", ToolFunction(
+    name: "git_add",
+    description: option("Stage files for commit"),
+    parameters: option(%*{
+      "type": "object",
+      "properties": {
+        "paths": {"type": "array", "items": {"type": "string"}},
+        "working_dir": {"type": "string"}
+      },
+      "required": ["paths"]
+    })
+  ), gitAdd)
+
+  result.register("git_commit", ToolFunction(
+    name: "git_commit",
+    description: option("Create a git commit"),
+    parameters: option(%*{
+      "type": "object",
+      "properties": {
+        "message": {"type": "string"},
+        "working_dir": {"type": "string"}
+      },
+      "required": ["message"]
+    })
+  ), gitCommit)
+
+  result.register("git_restore", ToolFunction(
+    name: "git_restore",
+    description: option("Restore files (discard changes or unstage)"),
+    parameters: option(%*{
+      "type": "object",
+      "properties": {
+        "paths": {"type": "array", "items": {"type": "string"}},
+        "staged": {"type": "boolean"},
+        "working_dir": {"type": "string"}
+      },
+      "required": ["paths"]
+    })
+  ), gitRestore)

@@ -38,7 +38,8 @@ suite "read tools":
   test "registry contains all read tools":
     let expected = @[
       "system_pwd", "system_ls", "nim_check", "nimble_test", "nim_version",
-      "find_files", "read_file", "awk", "ripgrep", "git_status", "git_diff"
+      "find_files", "read_file", "awk", "ripgrep", "git_status", "git_diff",
+      "git_log", "git_diff_staged", "git_show", "git_branch"
     ]
     for name in expected:
       check tools.hasKey(name)

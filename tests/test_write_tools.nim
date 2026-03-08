@@ -94,7 +94,8 @@ suite "write tools":
     let expected = @[
       "write_file", "append_file", "replace_in_file",
       "create_directory", "delete_file", "create_issue",
-      "move_file", "sed_edit", "insert_lines", "delete_lines", "replace_lines"
+      "move_file", "sed_edit", "insert_lines", "delete_lines", "replace_lines",
+      "git_add", "git_commit", "git_restore"
     ]
     for name in expected:
       check tools.hasKey(name)
