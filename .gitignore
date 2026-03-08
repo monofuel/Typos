@@ -1,12 +1,14 @@
-# ignore files with no extention:
-*
-!*/
-!*.*
+# compiled binaries
+typos
+typoi
+src/agents/qwen3_coder
 
-# normal ignores:
-*.exe
+# nim build artifacts
 nimcache
+*.exe
 *.pdb
 *.ilk
 *.out
+
+# dotfiles (editors, etc)
 .*
