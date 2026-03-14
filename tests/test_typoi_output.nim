@@ -1,5 +1,5 @@
 import
-  std/[json, unittest],
+  std/[json, os, unittest],
   Typoi/output
 
 
@@ -16,3 +16,11 @@ suite "typoi output":
     check node["type"].getStr == "tool"
     check node["name"].getStr == "write_file"
     check node["text"].getStr == "Wrote 5 bytes."
+
+  test "last assistant message is written to disk":
+    let outputPath = getTempDir() / "typoi_last_message_test.txt"
+    defer:
+      if fileExists(outputPath):
+        removeFile(outputPath)
+    writeLastAssistantMessage(outputPath, "final answer")
+    check readFile(outputPath) == "final answer"

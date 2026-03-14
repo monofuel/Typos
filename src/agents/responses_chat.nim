@@ -104,6 +104,30 @@ proc sendMessage*(chatMessages: seq[ChatMessage]): TyposResponseStream =
     )
 
 
+proc sendMessageWithTools*(chatMessages: seq[ChatMessage], tools: ResponseToolsTable): TyposResponseStream =
+  ## Run a request with a pre-built tool table and return buffered text output.
+  ensureClientInitialized()
+
+  var req = CreateResponseReq()
+  req.model = activeConfig.model
+  req.input = option(toResponseInputs(chatMessages))
+
+  let bufferedResponse = if activeConfig.provider.usesMessagesApi:
+    var msgReq = toMessageReq(req)
+    let resp = apiClient.createMessageWithTools(msgReq, tools)
+    messageText(resp)
+  else:
+    let resp = apiClient.createResponseWithTools(req, tools)
+    extractResponseText(resp)
+
+  result = TyposResponseStream(
+    stream: nil,
+    hasEmittedDelta: false,
+    bufferedResponse: bufferedResponse,
+    emittedBuffered: false
+  )
+
+
 proc sendMessageWithReadTools*(chatMessages: seq[ChatMessage]): TyposResponseStream =
   ## Run a request with read-only tools and return buffered text output.
   ensureClientInitialized()

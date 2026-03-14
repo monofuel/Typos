@@ -23,9 +23,12 @@ type
     baseUrl*: string
     apiEnvVar*: string
     prompt*: string
+    outputLastMessagePath*: string
     toolMode*: ToolMode
     outputMode*: OutputMode
     showHelp*: bool
+    profile*: string
+    mcpServerUrl*: string
 
   InputSelection* = object
     mode*: InputMode
@@ -50,6 +53,12 @@ proc setConfigValue(config: var CliConfig, key: string, value: string) =
     config.apiEnvVar = value
   of "prompt", "p":
     config.prompt = value
+  of "output-last-message":
+    config.outputLastMessagePath = value
+  of "profile":
+    config.profile = value
+  of "mcp-server-url":
+    config.mcpServerUrl = value
   else:
     raise newException(ValueError, "Unknown option: " & key)
 
@@ -72,6 +81,7 @@ proc parseCliArgs*(args: seq[string]): CliConfig =
   result.baseUrl = ""
   result.apiEnvVar = ""
   result.prompt = ""
+  result.outputLastMessagePath = ""
   result.toolMode = ToolModeNone
   result.outputMode = OutputModeText
   result.showHelp = false
@@ -113,6 +123,21 @@ proc parseCliArgs*(args: seq[string]): CliConfig =
         else:
           pendingValueKey = parser.key
       of "prompt", "p":
+        if parser.val.len > 0:
+          setConfigValue(result, parser.key, parser.val)
+        else:
+          pendingValueKey = parser.key
+      of "output-last-message":
+        if parser.val.len > 0:
+          setConfigValue(result, parser.key, parser.val)
+        else:
+          pendingValueKey = parser.key
+      of "profile":
+        if parser.val.len > 0:
+          setConfigValue(result, parser.key, parser.val)
+        else:
+          pendingValueKey = parser.key
+      of "mcp-server-url":
         if parser.val.len > 0:
           setConfigValue(result, parser.key, parser.val)
         else:

@@ -81,3 +81,9 @@ proc ensureTrailingNewline*(emitter: CliOutputEmitter, text: string) =
   ## Add a trailing newline for raw text mode when the response lacks one.
   if emitter.outputMode == OutputModeText and text.len > 0 and not text.endsWith("\n"):
     writeLine("")
+
+
+proc writeLastAssistantMessage*(outputPath: string, text: string) =
+  ## Write the latest completed assistant message to disk when a path is configured.
+  if outputPath.len > 0:
+    writeFile(outputPath, text)

@@ -27,6 +27,10 @@ suite "typoi cli args":
     let config = parseCliArgs(@["--prompt", "hello world"])
     check config.prompt == "hello world"
 
+  test "output last message path can be selected":
+    let config = parseCliArgs(@["--output-last-message", "last.txt"])
+    check config.outputLastMessagePath == "last.txt"
+
   test "help option sets showHelp":
     let config = parseCliArgs(@["--help"])
     check config.showHelp
