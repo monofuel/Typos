@@ -1,8 +1,14 @@
-.PHONY: build test integration-test e2e-test
+.PHONY: build build-typoi build-typos test integration-test e2e-test
 
-build:
-	nim c -o:typos src/Typos.nim
-	nim c -o:typoi src/typoi.nim
+BUILD_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+
+build: build-typoi
+
+build-typoi:
+	nim c -d:release -d:BuildCommitHash=$(BUILD_COMMIT) -o:typoi src/typoi.nim
+
+build-typos:
+	nim c -d:release -d:BuildCommitHash=$(BUILD_COMMIT) -o:typos src/Typos.nim
 
 test:
 	@found=0; \

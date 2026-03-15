@@ -1,13 +1,88 @@
-name: Github Actions
-on: [push, pull_request]
+name: Build And Test
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - "v*"
+  pull_request:
+
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
-    # TODO switch to setup-nim-action@v5 and use nimby
-    - uses: treeform/setup-nim-action@v2
-    - run: nimble install -y -d
-    # TODO fix
-    # - run: nim c src/Typos.nim
+      - uses: actions/checkout@v4
+      - uses: treeform/setup-nim-action@v6
+      - run: nimby sync -g nimby.lock
+      - run: make test
+
+  linux-binary:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: treeform/setup-nim-action@v6
+      - run: nimby sync -g nimby.lock
+      - name: Build typoi binary
+        run: make build-typoi
+      - name: Package linux binary
+        run: |
+          mkdir -p dist
+          cp typoi dist/typoi-linux-x86_64
+          chmod +x dist/typoi-linux-x86_64
+      - name: Upload linux binary artifact
+        if: github.server_url == 'https://github.com'
+        uses: actions/upload-artifact@v4
+        with:
+          name: typoi-linux-x86_64
+          path: dist/typoi-linux-x86_64
+
+  release:
+    runs-on: ubuntu-latest
+    needs: linux-binary
+    if: github.server_url == 'https://github.com' && startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download linux binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: typoi-linux-x86_64
+          path: dist
+      - name: Publish GitHub release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/typoi-linux-x86_64
+
+  release-master:
+    runs-on: ubuntu-latest
+    needs: linux-binary
+    if: github.server_url == 'https://github.com' && github.event_name == 'push' && github.ref == 'refs/heads/master'
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update rolling release tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -fa master-latest -m "Latest master build" "${GITHUB_SHA}"
+          git push origin refs/tags/master-latest --force
+      - name: Download linux binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: typoi-linux-x86_64
+          path: dist
+      - name: Publish rolling master release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: master-latest
+          name: master-latest
+          prerelease: true
+          files: dist/typoi-linux-x86_64
