@@ -1,0 +1,12 @@
+nimTitle	registry	Typos/tools/registry.html	module Typos/tools/registry		0
+nim	ToolOps	Typos/tools/registry.html#ToolOps	object ToolOps		6
+nim	collectedIssues	Typos/tools/registry.html#collectedIssues	var collectedIssues		20
+nim	activeToolEventCallback	Typos/tools/registry.html#activeToolEventCallback	var activeToolEventCallback		22
+nim	setToolOps	Typos/tools/registry.html#setToolOps,ToolOps	proc setToolOps(ops: ToolOps)		74
+nim	resetToolOps	Typos/tools/registry.html#resetToolOps	proc resetToolOps()		79
+nim	setToolEventCallback	Typos/tools/registry.html#setToolEventCallback,proc(string,JsonNode,string)	proc setToolEventCallback(callback: proc (name: string; args: JsonNode;\n                                     output: string) {.closure.})		84
+nim	clearToolEventCallback	Typos/tools/registry.html#clearToolEventCallback	proc clearToolEventCallback()		91
+nim	clearCollectedIssues	Typos/tools/registry.html#clearCollectedIssues	proc clearCollectedIssues()		735
+nim	getCollectedIssues	Typos/tools/registry.html#getCollectedIssues	proc getCollectedIssues(): seq[JsonNode]		740
+nim	getTyposReadTools	Typos/tools/registry.html#getTyposReadTools	proc getTyposReadTools(): ResponseToolsTable		745
+nim	getTyposReadWriteTools	Typos/tools/registry.html#getTyposReadWriteTools	proc getTyposReadWriteTools(): ResponseToolsTable		865

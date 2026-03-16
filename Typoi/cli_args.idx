@@ -1,0 +1,18 @@
+nimTitle	cli_args	Typoi/cli_args.html	module Typoi/cli_args		0
+nim	ToolModeNone	Typoi/cli_args.html#ToolModeNone	ToolMode.ToolModeNone		7
+nim	ToolModeReadOnly	Typoi/cli_args.html#ToolModeReadOnly	ToolMode.ToolModeReadOnly		7
+nim	ToolModeReadWrite	Typoi/cli_args.html#ToolModeReadWrite	ToolMode.ToolModeReadWrite		7
+nim	ToolMode	Typoi/cli_args.html#ToolMode	enum ToolMode		7
+nim	OutputModeText	Typoi/cli_args.html#OutputModeText	OutputMode.OutputModeText		12
+nim	OutputModeJsonStream	Typoi/cli_args.html#OutputModeJsonStream	OutputMode.OutputModeJsonStream		12
+nim	OutputMode	Typoi/cli_args.html#OutputMode	enum OutputMode		12
+nim	InputModeOneShot	Typoi/cli_args.html#InputModeOneShot	InputMode.InputModeOneShot		16
+nim	InputModeRepl	Typoi/cli_args.html#InputModeRepl	InputMode.InputModeRepl		16
+nim	InputMode	Typoi/cli_args.html#InputMode	enum InputMode		16
+nim	CliConfig	Typoi/cli_args.html#CliConfig	object CliConfig		20
+nim	InputSelection	Typoi/cli_args.html#InputSelection	object InputSelection		33
+nim	DefaultProvider	Typoi/cli_args.html#DefaultProvider	const DefaultProvider		39
+nim	PromptRequiredError	Typoi/cli_args.html#PromptRequiredError	const PromptRequiredError		40
+nim	toolModeName	Typoi/cli_args.html#toolModeName,ToolMode	proc toolModeName(toolMode: ToolMode): string		66
+nim	parseCliArgs	Typoi/cli_args.html#parseCliArgs,seq[string]	proc parseCliArgs(args: seq[string]): CliConfig		77
+nim	resolveInputSelection	Typoi/cli_args.html#resolveInputSelection,string,string,bool	proc resolveInputSelection(promptArg: string; stdinData: string; stdinIsTty: bool): InputSelection		161

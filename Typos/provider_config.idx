@@ -1,0 +1,6 @@
+nimTitle	provider_config	Typos/provider_config.html	module Typos/provider_config		0
+nim	providerName	Typos/provider_config.html#providerName,ProviderKind	proc providerName(provider: ProviderKind): string		6
+nim	parseProviderKind	Typos/provider_config.html#parseProviderKind,string	proc parseProviderKind(name: string): ProviderKind		19
+nim	defaultProviderConfig	Typos/provider_config.html#defaultProviderConfig,ProviderKind	proc defaultProviderConfig(provider: ProviderKind): ProviderConfig		38
+nim	resolveProviderConfig	Typos/provider_config.html#resolveProviderConfig,string,string,string,string	proc resolveProviderConfig(providerName: string; modelOverride: string;\n                      baseUrlOverride: string; apiEnvVarOverride: string): ProviderConfig		71
+nim	usesMessagesApi	Typos/provider_config.html#usesMessagesApi,ProviderKind	proc usesMessagesApi(provider: ProviderKind): bool		89

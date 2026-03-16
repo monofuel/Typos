@@ -1,0 +1,8 @@
+nimTitle	responses_chat	agents/responses_chat.html	module agents/responses_chat		0
+nim	TyposResponseStream	agents/responses_chat.html#TyposResponseStream	type TyposResponseStream		8
+nim	initClient	agents/responses_chat.html#initClient,ProviderConfig	proc initClient(config: ProviderConfig)		56
+nim	sendMessage	agents/responses_chat.html#sendMessage,seq[ChatMessage]	proc sendMessage(chatMessages: seq[ChatMessage]): TyposResponseStream		83
+nim	sendMessageWithTools	agents/responses_chat.html#sendMessageWithTools,seq[ChatMessage],ResponseToolsTable	proc sendMessageWithTools(chatMessages: seq[ChatMessage]; tools: ResponseToolsTable): TyposResponseStream		107
+nim	sendMessageWithReadTools	agents/responses_chat.html#sendMessageWithReadTools,seq[ChatMessage]	proc sendMessageWithReadTools(chatMessages: seq[ChatMessage]): TyposResponseStream		131
+nim	sendMessageWithReadWriteTools	agents/responses_chat.html#sendMessageWithReadWriteTools,seq[ChatMessage]	proc sendMessageWithReadWriteTools(chatMessages: seq[ChatMessage]): TyposResponseStream		156
+nim	getNextChunk	agents/responses_chat.html#getNextChunk,TyposResponseStream	proc getNextChunk(stream: TyposResponseStream): Option[string]		181

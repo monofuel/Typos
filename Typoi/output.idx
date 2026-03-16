@@ -1,0 +1,14 @@
+nimTitle	output	Typoi/output.html	module Typoi/output		0
+nim	JsonStreamEventStatus	Typoi/output.html#JsonStreamEventStatus	JsonStreamEventKind.JsonStreamEventStatus		7
+nim	JsonStreamEventMessage	Typoi/output.html#JsonStreamEventMessage	JsonStreamEventKind.JsonStreamEventMessage		7
+nim	JsonStreamEventTool	Typoi/output.html#JsonStreamEventTool	JsonStreamEventKind.JsonStreamEventTool		7
+nim	JsonStreamEventKind	Typoi/output.html#JsonStreamEventKind	enum JsonStreamEventKind		7
+nim	CliOutputEmitter	Typoi/output.html#CliOutputEmitter	type CliOutputEmitter		12
+nim	newCliOutputEmitter	Typoi/output.html#newCliOutputEmitter,OutputMode	proc newCliOutputEmitter(outputMode: OutputMode): CliOutputEmitter		16
+nim	renderJsonStreamEvent	Typoi/output.html#renderJsonStreamEvent,JsonStreamEventKind,string,string	proc renderJsonStreamEvent(kind: JsonStreamEventKind; text: string; name = ""): string		32
+nim	emitStatus	Typoi/output.html#emitStatus,CliOutputEmitter,string	proc emitStatus(emitter: CliOutputEmitter; text: string)		53
+nim	emitMessage	Typoi/output.html#emitMessage,CliOutputEmitter,string	proc emitMessage(emitter: CliOutputEmitter; text: string)		59
+nim	emitTool	Typoi/output.html#emitTool,CliOutputEmitter,string,string	proc emitTool(emitter: CliOutputEmitter; name: string; text: string)		69
+nim	wantsInteractiveText	Typoi/output.html#wantsInteractiveText,CliOutputEmitter	proc wantsInteractiveText(emitter: CliOutputEmitter): bool		75
+nim	ensureTrailingNewline	Typoi/output.html#ensureTrailingNewline,CliOutputEmitter,string	proc ensureTrailingNewline(emitter: CliOutputEmitter; text: string)		80
+nim	writeLastAssistantMessage	Typoi/output.html#writeLastAssistantMessage,string,string	proc writeLastAssistantMessage(outputPath: string; text: string)		86

@@ -1,0 +1,34 @@
+nimTitle	common	Typos/common.html	module Typos/common		0
+nim	ChatMessage	Typos/common.html#ChatMessage	type ChatMessage		18
+nim	ProviderLmStudio	Typos/common.html#ProviderLmStudio	ProviderKind.ProviderLmStudio		23
+nim	ProviderOpenAi	Typos/common.html#ProviderOpenAi	ProviderKind.ProviderOpenAi		23
+nim	ProviderBedrock	Typos/common.html#ProviderBedrock	ProviderKind.ProviderBedrock		23
+nim	ProviderAnthropic	Typos/common.html#ProviderAnthropic	ProviderKind.ProviderAnthropic		23
+nim	ProviderKind	Typos/common.html#ProviderKind	enum ProviderKind		23
+nim	ProviderConfig	Typos/common.html#ProviderConfig	object ProviderConfig		29
+nim	Panel	Typos/common.html#Panel	type Panel		37
+nim	Area	Typos/common.html#Area	type Area		41
+nim	LmStudioProviderName	Typos/common.html#LmStudioProviderName	const LmStudioProviderName		48
+nim	OpenAiProviderName	Typos/common.html#OpenAiProviderName	const OpenAiProviderName		49
+nim	BedrockProviderName	Typos/common.html#BedrockProviderName	const BedrockProviderName		50
+nim	AnthropicProviderName	Typos/common.html#AnthropicProviderName	const AnthropicProviderName		51
+nim	OpenAiBaseUrl	Typos/common.html#OpenAiBaseUrl	const OpenAiBaseUrl		53
+nim	BedrockBaseUrl	Typos/common.html#BedrockBaseUrl	const BedrockBaseUrl		54
+nim	AnthropicBaseUrl	Typos/common.html#AnthropicBaseUrl	const AnthropicBaseUrl		55
+nim	OpenAiApiEnvVar	Typos/common.html#OpenAiApiEnvVar	const OpenAiApiEnvVar		56
+nim	BedrockApiEnvVar	Typos/common.html#BedrockApiEnvVar	const BedrockApiEnvVar		57
+nim	AnthropicApiEnvVar	Typos/common.html#AnthropicApiEnvVar	const AnthropicApiEnvVar		58
+nim	LmStudioDefaultModel	Typos/common.html#LmStudioDefaultModel	const LmStudioDefaultModel		60
+nim	OpenAiDefaultModel	Typos/common.html#OpenAiDefaultModel	const OpenAiDefaultModel		61
+nim	BedrockDefaultModel	Typos/common.html#BedrockDefaultModel	const BedrockDefaultModel		62
+nim	AnthropicDefaultModel	Typos/common.html#AnthropicDefaultModel	const AnthropicDefaultModel		63
+nim	BackgroundColor	Typos/common.html#BackgroundColor	const BackgroundColor		66
+nim	PanelBackgroundColor	Typos/common.html#PanelBackgroundColor	const PanelBackgroundColor		67
+nim	TextPrimaryColor	Typos/common.html#TextPrimaryColor	const TextPrimaryColor		70
+nim	TextSecondaryColor	Typos/common.html#TextSecondaryColor	const TextSecondaryColor		71
+nim	UserMessageColor	Typos/common.html#UserMessageColor	const UserMessageColor		72
+nim	AIMessageColor	Typos/common.html#AIMessageColor	const AIMessageColor		73
+nim	BorderColor	Typos/common.html#BorderColor	const BorderColor		76
+nim	WhiteColor	Typos/common.html#WhiteColor	const WhiteColor		77
+nim	LmStudioBaseUrl	Typos/common.html#LmStudioBaseUrl	const LmStudioBaseUrl		80
+nim	Qwen3CoderModel	Typos/common.html#Qwen3CoderModel	const Qwen3CoderModel		82

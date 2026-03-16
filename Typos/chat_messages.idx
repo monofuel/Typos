@@ -1,0 +1,2 @@
+nimTitle	chat_messages	Typos/chat_messages.html	module Typos/chat_messages		0
+nim	toResponseInputs	Typos/chat_messages.html#toResponseInputs,seq[ChatMessage]	proc toResponseInputs(chatMessages: seq[ChatMessage]): seq[ResponseInput]		7

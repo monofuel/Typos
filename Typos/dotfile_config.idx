@@ -1,0 +1,8 @@
+nimTitle	dotfile_config	Typos/dotfile_config.html	module Typos/dotfile_config		0
+nim	ProfileConfig	Typos/dotfile_config.html#ProfileConfig	object ProfileConfig		6
+nim	DotfileConfig	Typos/dotfile_config.html#DotfileConfig	object DotfileConfig		13
+nim	parseDotfileConfig	Typos/dotfile_config.html#parseDotfileConfig,string	proc parseDotfileConfig(jsonStr: string): DotfileConfig		18
+nim	loadDotfileConfig	Typos/dotfile_config.html#loadDotfileConfig	proc loadDotfileConfig(): DotfileConfig		41
+nim	loadProjectConfig	Typos/dotfile_config.html#loadProjectConfig	proc loadProjectConfig(): DotfileConfig		52
+nim	mergeConfigs	Typos/dotfile_config.html#mergeConfigs,DotfileConfig,DotfileConfig	proc mergeConfigs(dotfile, project: DotfileConfig): DotfileConfig		63
+nim	resolveProfile	Typos/dotfile_config.html#resolveProfile,DotfileConfig,string	proc resolveProfile(config: DotfileConfig; profileName: string): ProfileConfig		74

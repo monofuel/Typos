@@ -1,0 +1,3 @@
+nimTitle	mcp_tools	Typos/mcp_tools.html	module Typos/mcp_tools		0
+nim	connectMcpClient	Typos/mcp_tools.html#connectMcpClient,string	proc connectMcpClient(url: string): HttpMcpClient		7
+nim	registerMcpTools	Typos/mcp_tools.html#registerMcpTools,ResponseToolsTable,HttpMcpClient	proc registerMcpTools(tools: var ResponseToolsTable; client: HttpMcpClient)		24
