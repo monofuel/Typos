@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     # Don't run docs on gitea
     if: github.server_url == 'https://github.com'
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: treeform/setup-nim-action@v6
