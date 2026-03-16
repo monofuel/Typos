@@ -20,8 +20,9 @@ jobs:
       - name: Install nim doc assets
         run: |
           NIM_DIR=$(dirname $(dirname $(which nim)))
-          mkdir -p "$NIM_DIR/doc"
+          mkdir -p "$NIM_DIR/doc" "$NIM_DIR/tools/dochack"
           curl -sL "https://raw.githubusercontent.com/nim-lang/Nim/devel/doc/nimdoc.css" -o "$NIM_DIR/doc/nimdoc.css"
+          echo "discard" > "$NIM_DIR/tools/dochack/dochack.nim"
       - run: nim doc --index:on --project --git.url:https://github.com/${{ github.repository }} --git.commit:master --out:${{ env.deploy-dir }} ${{ env.nim-src }}
       - name: "Copy to index.html"
         run: cp ${{ env.deploy-dir }}/typoi.html ${{ env.deploy-dir }}/index.html
