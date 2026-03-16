@@ -15,6 +15,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: treeform/setup-nim-action@v6
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libpcre3-dev libcurl4-openssl-dev
       - run: nimby sync -g nimby.lock
       - run: make test
 
@@ -26,6 +28,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: treeform/setup-nim-action@v6
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libpcre3-dev libcurl4-openssl-dev
       - run: nimby sync -g nimby.lock
       - name: Build typoi binary
         run: make build-typoi
