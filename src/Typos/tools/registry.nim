@@ -542,22 +542,38 @@ proc ripgrepTool(args: JsonNode): string =
   let lineNumbers = if args.hasKey("line_numbers"): args["line_numbers"].getBool else: true
   let maxCount = if args.hasKey("max_count"): args["max_count"].getInt else: 100
 
-  var rgArgs: seq[string] = @[]
-  if ignoreCase:
-    rgArgs.add("--ignore-case")
-  if lineNumbers:
-    rgArgs.add("--line-number")
-  if maxCount > 0:
-    rgArgs.add(&"--max-count={maxCount}")
-  rgArgs.add(pattern)
-  rgArgs.add(path)
+  let useRg = findExe("rg").len > 0
+  var grepCmd: string
+  var grepArgs: seq[string] = @[]
 
-  let (exitCode, output) = runProcess("rg", rgArgs, workingDir)
+  if useRg:
+    grepCmd = "rg"
+    if ignoreCase:
+      grepArgs.add("--ignore-case")
+    if lineNumbers:
+      grepArgs.add("--line-number")
+    if maxCount > 0:
+      grepArgs.add(&"--max-count={maxCount}")
+    grepArgs.add(pattern)
+    grepArgs.add(path)
+  else:
+    grepCmd = "grep"
+    grepArgs.add("-r")
+    if ignoreCase:
+      grepArgs.add("-i")
+    if lineNumbers:
+      grepArgs.add("-n")
+    if maxCount > 0:
+      grepArgs.add(&"-m{maxCount}")
+    grepArgs.add(pattern)
+    grepArgs.add(path)
+
+  let (exitCode, output) = runProcess(grepCmd, grepArgs, workingDir)
   if exitCode == 0:
     return truncateToolOutput(output.strip(), "ripgrep")
   if exitCode == 1:
     return "No matches found"
-  return &"Error executing ripgrep (exit code {exitCode}): {output}"
+  return &"Error executing {grepCmd} (exit code {exitCode}): {output}"
 
 
 proc gitStatus(args: JsonNode): string =
