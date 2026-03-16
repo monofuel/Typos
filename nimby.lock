@@ -1,3 +1,6 @@
 silky 0.0.1 https://github.com/treeform/silky 879907d004f62b631e578dceccd8cc364c4d15f8
 openai_leap 11.3.0 https://github.com/monofuel/openai_leap ddb57d1514b88f58b8f0588789eed3db75e1f057
 MCPort 1.0.0 https://github.com/monofuel/MCPort 54a386f8cec02c47cec5582751b69294c38dc456
+chroma 1.0.0 https://github.com/treeform/chroma 2381748f92e5ea16cb2403ff7e20c6dd5443a59d
+bumpy 1.1.3 https://github.com/treeform/bumpy dc9a3d6d15680ec7f603959d65ba8ee4f1ddbc72
+vmath 2.0.1 https://github.com/treeform/vmath b1cb7ec85f6e7690cf1261227cd2d552275e3e53
