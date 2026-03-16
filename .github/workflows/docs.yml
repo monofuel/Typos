@@ -1,35 +1,32 @@
-name: docs
-on:
-  push:
-    branches:
-      - master
-env:
-  nim-src: src/typoi.nim
-  deploy-dir: .gh-pages
-jobs:
-  docs:
-    runs-on: ubuntu-latest
-    # Don't run docs on gitea
-    if: github.server_url == 'https://github.com'
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: treeform/setup-nim-action@v6
-      - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libpcre3-dev libcurl4-openssl-dev
-      - run: nimby sync -g nimby.lock
-      - name: Install nim doc assets
-        run: |
-          NIM_DIR=$(dirname $(dirname $(which nim)))
-          mkdir -p "$NIM_DIR/doc" "$NIM_DIR/tools/dochack"
-          curl -sL "https://raw.githubusercontent.com/nim-lang/Nim/devel/doc/nimdoc.css" -o "$NIM_DIR/doc/nimdoc.css"
-          echo "discard" > "$NIM_DIR/tools/dochack/dochack.nim"
-      - run: nim doc --index:on --project --git.url:https://github.com/${{ github.repository }} --git.commit:master --out:${{ env.deploy-dir }} ${{ env.nim-src }}
-      - name: "Copy to index.html"
-        run: cp ${{ env.deploy-dir }}/typoi.html ${{ env.deploy-dir }}/index.html
-      - name: Deploy documents
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ${{ env.deploy-dir }}
+# Disabled: nimby's minimal Nim install doesn't include doc/ and tools/dochack/
+# which nim doc requires. Re-enable when nimby ships doc assets or we switch
+# to a full Nim install for this job.
+#
+# name: docs
+# on:
+#   push:
+#     branches:
+#       - master
+# env:
+#   nim-src: src/typoi.nim
+#   deploy-dir: .gh-pages
+# jobs:
+#   docs:
+#     runs-on: ubuntu-latest
+#     if: github.server_url == 'https://github.com'
+#     permissions:
+#       contents: write
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: treeform/setup-nim-action@v6
+#       - name: Install system dependencies
+#         run: sudo apt-get update && sudo apt-get install -y libpcre3-dev libcurl4-openssl-dev
+#       - run: nimby sync -g nimby.lock
+#       - run: nim doc --index:on --project --git.url:https://github.com/${{ github.repository }} --git.commit:master --out:${{ env.deploy-dir }} ${{ env.nim-src }}
+#       - name: "Copy to index.html"
+#         run: cp ${{ env.deploy-dir }}/typoi.html ${{ env.deploy-dir }}/index.html
+#       - name: Deploy documents
+#         uses: peaceiris/actions-gh-pages@v4
+#         with:
+#           github_token: ${{ secrets.GITHUB_TOKEN }}
+#           publish_dir: ${{ env.deploy-dir }}
