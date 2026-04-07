@@ -1,0 +1,18 @@
+{
+  "operation": "assign 0003-recovery-e77093d",
+  "timestamp": "2026-04-07T22:11:39Z",
+  "steps": [
+    {
+      "action": "move",
+      "source": "tickets/open/0003-recovery-e77093d.md",
+      "destination": "tickets/in-progress/0003-recovery-e77093d.md"
+    },
+    {
+      "action": "write",
+      "path": "tickets/in-progress/0003-recovery-e77093d.md",
+      "content": "# Recovery: Fix Failing Tests on Main Branch\n\n**Area:** recovery\n\nThe main branch tests are failing at commit e77093d. Diagnose the failure from the test output below and fix the root cause. Keep the fix minimal and targeted.\n\n## Test Failure Output\n\n```\n--- tests/test_cli_args.nim ---\nHint: used config file '/usr/lib/nim/config/nim.cfg' [Conf]\nHint: used config file '/usr/lib/nim/config/config.nims' [Conf]\nHint: used config file '/mnt/steel-chest/Monolab/Home/racha/src/Typos/config.nims' [Conf]\nHint: used config file '/mnt/steel-chest/Monolab/Home/racha/src/Typos/tests/config.nims' [Conf]\n.....................................................................................................................................\n/mnt/steel-chest/Monolab/Home/racha/src/Typos/src/Typos/common.nim(4, 3) Error: cannot open file: chroma\nmake: *** [Makefile:14: test] Error 1\n\n```\n\n**Worktree:** /mnt/steel-chest/Monolab/Home/racha/src/Typos/.scriptorium/worktrees/tickets/0003-recovery-e77093d\n",
+      "contentHash": "6FD69F74337C504CD0E5784E1A6981ADDB0646DA"
+    }
+  ],
+  "commit_message": "scriptorium: assign ticket 0003-recovery-e77093d"
+}
