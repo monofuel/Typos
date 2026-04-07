@@ -1,0 +1,13 @@
+{
+  "operation": "enqueue 0003",
+  "timestamp": "2026-04-07T22:20:03Z",
+  "steps": [
+    {
+      "action": "write",
+      "path": "queue/merge/pending/0001-0003.md",
+      "content": "# Merge Queue Item\n\n**Ticket:** tickets/in-progress/0003-recovery-e77093d.md\n**Ticket ID:** 0003\n**Branch:** scriptorium/ticket-0003\n**Worktree:** /mnt/steel-chest/Monolab/Home/racha/src/Typos/.scriptorium/worktrees/tickets/0003-recovery-e77093d\n**Summary:** Split provider constants from common.nim into providers.nim to fix test failures caused by chroma import.\n\nRoot cause: common.nim mixed provider string constants (used by cli_args.nim) with UI types requiring chroma/bumpy. Tests couldn't compile because cli_args.nim transitively required chroma just for the OpenAiProviderName constant.\n\nFix: Extracted provider types and constants into a new providers.nim with no external dependencies. common.nim now imports and re-exports providers, so existing code using common.nim is unaffected. cli_args.nim imports providers directly.\n\nNote: A pre-existing nimble_test test failure exists in test_read_tools.nim due to an environment permission issue with nimble's cache directory — unrelated to this change.\n",
+      "contentHash": "C7412F67DCA19285A0ACC8F396F3BDAD7E4CD232"
+    }
+  ],
+  "commit_message": "scriptorium: enqueue merge request 0003"
+}
