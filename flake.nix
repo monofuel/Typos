@@ -18,10 +18,11 @@
             curlFull
             openssl
             cacert
+            pcre
           ];
 
           shellHook = ''
-            export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath [ pkgs.curlFull pkgs.openssl ]}:$LD_LIBRARY_PATH
+            export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath [ pkgs.curlFull pkgs.openssl pkgs.pcre ]}:$LD_LIBRARY_PATH
             export SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
           '';
         };
