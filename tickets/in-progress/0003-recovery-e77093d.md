@@ -143,3 +143,36 @@ Done. Here's a summary of the three fixes:
 ```text
 at caused `test_cli_args.nim` to fail.\n\n4. **`src/Typos/tools/registry.nim`** — `nimbleTest` now sets `TMPDIR` to the working directory when spawning `nimble test`, avoiding the root-owned `/tmp/nimblecache-*` directory that caused permission errors.\n\n5. **`nim.cfg`** — Added `--path` entries for all nimby packages so Nim can resolve external dependencies during compilation.","stop_reason":"end_turn","session_id":"555cfd84-c34e-4990-a301-84554dcfb702","total_cost_usd":5.023719999999999,"usage":{"input_tokens":3176,"cache_creation_input_tokens":307086,"cache_read_input_tokens":4918405,"output_tokens":25174,"server_tool_use":{"web_search_requests":0,"web_fetch_requests":0},"service_tier":"standard","cache_creation":{"ephemeral_1h_input_tokens":0,"ephemeral_5m_input_tokens":307086},"inference_geo":"","iterations":[],"speed":"standard"},"modelUsage":{"us.anthropic.claude-opus-4-6-v1":{"inputTokens":3176,"outputTokens":25174,"cacheReadInputTokens":4918405,"cacheCreationInputTokens":307086,"webSearchRequests":0,"costUSD":5.023719999999999,"contextWindow":200000,"maxOutputTokens":64000}},"permission_denials":[],"fast_mode_state":"off","uuid":"fb2fd86f-49d9-4f92-b5b8-5c0dbc48285f"}
 ```
+
+## Review
+**Review:** changes requested
+- Model: claude-sonnet-4-6
+- Backend: claude-code
+- Exit Code: 0
+- Wall Time: 55s
+
+**Review Feedback:** The `providers.nim` extraction and `cli_args.nim` fix correctly resolve the original `chroma` compilation error — that part is clean, minimal, and convention-compliant. However, the merge queue quality check shows that `nimble_test` is still failing:
+
+```
+[FAILED] nimble_test
+  tests/test_read_tools.nim(86, 40): Check failed: output.toLowerAscii().contains("ok")
+```
+
+The ticket goal is to fix failing tests on the branch. The `nimbleTest` TMPDIR change in `registry.nim` did not resolve this failure. The output produced by the tool does not contain "ok", so either:
+
+1. The TMPDIR change did not eliminate the permission error (root-owned `/tmp/nimblecache-*` or similar), or
+2. There is a different underlying cause for the `nimble_test` tool returning non-"ok" output in the test environment.
+
+Would you kindly investigate what `nimbleTest` actually returns when invoked from the test (e.g. add temporary debug output or inspect the exact error text) and fix the root cause rather than the symptom? The TMPDIR workaround adds complexity but doesn't appear to be sufficient.
+
+**Minor style note (non-blocking):** In the updated `nimbleTest` proc, `var output = ""` is declared after `let process = startProcess(...)` rather than grouped with other variable declarations at the top of the proc. The convention prefers grouped `var`/`let`/`const` blocks. This can be tidied up as part of the fix.
+
+Everything else in the diff — naming, imports, doc comments, the `providers.nim` module structure — looks good.
+
+**Review Reasoning:** Review submitted as **request_changes**.
+
+**Summary of findings:**
+
+- The `providers.nim` extraction and `cli_args.nim` fix are correct and minimal — the root cause of the original `chroma` compilation error is properly addressed.
+- The `nimble_test` TMPDIR workaround in `registry.nim` was not sufficient: the merge queue shows `test_read_tools.nim` line 86 still failing (`output.toLowerAscii().contains("ok")` check). Since the ticket's goal is to fix failing tests, this incomplete fix is a blocking issue.
+- Minor: `var output = ""` is declared mid-proc rather than in a grouped block at the top — worth tidying when revisiting that proc.
