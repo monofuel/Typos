@@ -66,3 +66,58 @@ This is a minimal, correct fix. No convention violations.
 Review submitted: **approved with warnings**.
 
 The agent's fix is solid — the three Nim source file changes correctly address the root cause with no convention violations. The only flag is that ~25 submodule additions and a `nim.cfg` pre-exist in the branch and will ride along into master; those warrant a manual check to confirm they're intentional.
+
+## Merge Queue Failure
+- Summary: Split provider constants from common.nim into providers.nim to fix test failures caused by chroma import.\n- Failed gate: make test\n
+### Merge Output
+```text
+Current branch scriptorium/ticket-0003 is up to date.
+```
+
+### Quality Check Output
+```text
+Tool to ToolFunction
+  [OK] MCP tools merge without colliding with native tools
+  [OK] McpTool with nil inputSchema gets default parameters
+--- tests/test_read_tools.nim ---
+Hint: used config file '/usr/lib/nim/config/nim.cfg' [Conf]
+Hint: used config file '/usr/lib/nim/config/config.nims' [Conf]
+Hint: used config file '/mnt/steel-chest/Monolab/Home/racha/src/Typos/config.nims' [Conf]
+Hint: used config file '/mnt/steel-chest/Monolab/Home/racha/src/Typos/.scriptorium/worktrees/tickets/0003-recovery-e77093d/nim.cfg' [Conf]
+Hint: used config file '/mnt/steel-chest/Monolab/Home/racha/src/Typos/.scriptorium/worktrees/tickets/0003-recovery-e77093d/config.nims' [Conf]
+Hint: used config file '/mnt/steel-chest/Monolab/Home/racha/src/Typos/.scriptorium/worktrees/tickets/0003-recovery-e77093d/tests/config.nims' [Conf]
+Hint: mm: orc; threads: on; opt: speed; options: -d:release
+81188 lines; 0.018s; 93.312MiB peakmem; proj: /mnt/steel-chest/Monolab/Home/racha/src/Typos/.scriptorium/worktrees/tickets/0003-recovery-e77093d/tests/test_read_tools.nim; out: /home/scriptorium/.cache/nim/test_read_tools_r/test_read_tools_67B0EDF27C67D3C1B2BDE65F42AADA469FCC1616 [SuccessX]
+Hint: /home/scriptorium/.cache/nim/test_read_tools_r/test_read_tools_67B0EDF27C67D3C1B2BDE65F42AADA469FCC1616 [Exec]
+
+[Suite] read tools
+  [OK] registry contains all read tools
+  [OK] system_pwd
+  [OK] system_ls
+  [OK] nim_check
+    /mnt/steel-chest/Monolab/Home/racha/src/Typos/.scriptorium/worktrees/tickets/0003-recovery-e77093d/tests/test_read_tools.nim(86, 40): Check failed: output.toLowerAscii().contains("ok")
+  [FAILED] nimble_test
+  [OK] nim_version
+  [OK] find_files
+  [OK] read_file
+  [OK] awk
+  [OK] ripgrep
+  [OK] git_status
+  [OK] git_diff
+
+[Suite] read+write tools
+  [OK] registry includes write tools
+  [OK] create_issue
+Error: execution of an external program failed: '/home/scriptorium/.cache/nim/test_read_tools_r/test_read_tools_67B0EDF27C67D3C1B2BDE65F42AADA469FCC1616'
+make: *** [Makefile:14: test] Error 1
+```
+
+## Metrics
+- wall_time_seconds: 634
+- coding_wall_seconds: 491
+- test_wall_seconds: 0
+- attempt_count: 1
+- outcome: reopened
+- failure_reason: test_failure
+- model: claude-opus-4-6
+- stdout_bytes: 440341
