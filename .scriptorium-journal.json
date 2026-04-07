@@ -1,0 +1,13 @@
+{
+  "operation": "enqueue 0004",
+  "timestamp": "2026-04-07T23:34:43Z",
+  "steps": [
+    {
+      "action": "write",
+      "path": "queue/merge/pending/0001-0004.md",
+      "content": "# Merge Queue Item\n\n**Ticket:** tickets/in-progress/0004-recovery-d311468.md\n**Ticket ID:** 0004\n**Branch:** scriptorium/ticket-0004\n**Worktree:** /mnt/steel-chest/Monolab/Home/racha/src/Typos/.scriptorium/worktrees/tickets/0004-recovery-d311468\n**Summary:** Fix failing tests by adding nimby package paths to config.nims.\n\nRoot cause: The Nim compiler couldn't find nimby-managed packages (chroma, bumpy, etc.) because config.nims had no path directives pointing to ~/.nimby/pkgs/. Added a loop that scans nimby's global package directory and adds each package's src/ path to the Nim search path.\n\nAlso fixed a secondary test failure (nimble_test) caused by a root-owned /tmp/nimblecache directory by setting TMPDIR to a writable temp directory before invoking nimble.\n",
+      "contentHash": "81BC34B143FB3729D3ADAFDD96142F722BA730D9"
+    }
+  ],
+  "commit_message": "scriptorium: enqueue merge request 0004"
+}
