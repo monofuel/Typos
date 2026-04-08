@@ -16,9 +16,11 @@ proc makeTempDir(prefix: string): string =
 
 
 proc requireApiKey(): string =
+  ## Return the API key or exit gracefully when not set.
   result = getEnv(BedrockApiEnvVar).strip()
   if result.len == 0:
-    raise newException(ValueError, "AWS_BEDROCK_TOKEN must be set for integration tests.")
+    echo "Skipping: AWS_BEDROCK_TOKEN not set."
+    quit(0)
 
 
 proc askWithWriteTools(api: OpenAiApi, prompt: string): string =

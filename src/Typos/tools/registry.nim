@@ -1,5 +1,5 @@
 import
-  std/[json, options, os, osproc, re, streams, strformat, strutils],
+  std/[envvars, json, options, os, osproc, re, streams, strformat, strutils],
   openai_leap
 
 type
@@ -245,6 +245,9 @@ proc nimCheck(args: JsonNode): string =
 proc nimbleTest(args: JsonNode): string =
   ## Run nimble test in a working directory.
   let workingDir = resolveWorkingDir(args)
+  let origTmpdir = getEnv("TMPDIR")
+  putEnv("TMPDIR", workingDir)
+  defer: putEnv("TMPDIR", origTmpdir)
   let (exitCode, output) = runProcess("nimble", @["test"], workingDir)
   if exitCode == 0:
     return output.strip()
