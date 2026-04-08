@@ -1,0 +1,13 @@
+{
+  "operation": "enqueue 0008",
+  "timestamp": "2026-04-08T20:02:51Z",
+  "steps": [
+    {
+      "action": "write",
+      "path": "queue/merge/pending/0001-0008.md",
+      "content": "# Merge Queue Item\n\n**Ticket:** tickets/in-progress/0008-recovery-b314219.md\n**Ticket ID:** 0008\n**Branch:** scriptorium/ticket-0008\n**Worktree:** /mnt/steel-chest/Monolab/Home/racha/src/Typos/.scriptorium/worktrees/tickets/0008-recovery-b314219\n**Summary:** Verified that all test failures at commit b314219 are already fixed on master. The failures were: (1) missing nimby package paths in config.nims (fixed in 91c9c25), (2) TMPDIR permission error in nimble_test tool (fixed in 3e3a22d), (3) integration tests crashing on missing env vars instead of gracefully skipping (fixed in 3e3a22d), (4) integration tests using wrong provider/model config (fixed in d1ca356, 0f3dbb2), and (5) unused mcport import (fixed in a821634). All `make test` (83 passed, 0 failed) and `make integration-test` pass cleanly. No new changes needed.\n",
+      "contentHash": "0CF3BBD840A7C5D9CDFFC3F5F752B6FA1A942009"
+    }
+  ],
+  "commit_message": "scriptorium: enqueue merge request 0008"
+}
