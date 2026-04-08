@@ -1,0 +1,18 @@
+{
+  "operation": "assign 0017-recovery-a821634",
+  "timestamp": "2026-04-08T20:20:17Z",
+  "steps": [
+    {
+      "action": "move",
+      "source": "tickets/open/0017-recovery-a821634.md",
+      "destination": "tickets/in-progress/0017-recovery-a821634.md"
+    },
+    {
+      "action": "write",
+      "path": "tickets/in-progress/0017-recovery-a821634.md",
+      "content": "# Recovery: Fix Failing Tests on Main Branch\n\n**Area:** recovery\n\nThe main branch tests are failing at commit a821634. Diagnose the failure from the test output below and fix the root cause. Keep the fix minimal and targeted.\n\n## Test Failure Output\n\nTest output unavailable (cached result). Run `make test` and `make integration-test` to reproduce the failure.\n\n**Worktree:** /mnt/steel-chest/Monolab/Home/racha/src/Typos/.scriptorium/worktrees/tickets/0017-recovery-a821634\n",
+      "contentHash": "978FECF4CFBCF6F1F3558035A4A0CCCF2D2D1283"
+    }
+  ],
+  "commit_message": "scriptorium: assign ticket 0017-recovery-a821634"
+}
