@@ -4,7 +4,6 @@
 import
   std/[json, options, os, strformat, strutils, terminal, times],
   openai_leap,
-  mcport,
   ./Typoi/[cli_args, output],
   ./Typos/[common, dotfile_config, mcp_tools, provider_config, tools],
   ./agents
