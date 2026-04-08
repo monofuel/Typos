@@ -2,6 +2,14 @@ import os, strformat, strutils
 
 --path:"src"
 
+# Add nimby package paths (bypasses nimblePath validation that rejects MCPort casing).
+const nimbyDir = getHomeDir() / ".nimby" / "pkgs"
+if dirExists(nimbyDir):
+  for kind, path in walkDir(nimbyDir):
+    if kind == pcDir:
+      switch("path", path / "src")
+      switch("path", path)
+
 when defined(emscripten):
   --nimcache:tmp
   --os:linux
