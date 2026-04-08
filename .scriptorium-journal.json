@@ -1,0 +1,18 @@
+{
+  "operation": "assign 0006-recovery-d311468",
+  "timestamp": "2026-04-08T19:27:21Z",
+  "steps": [
+    {
+      "action": "move",
+      "source": "tickets/open/0006-recovery-d311468.md",
+      "destination": "tickets/in-progress/0006-recovery-d311468.md"
+    },
+    {
+      "action": "write",
+      "path": "tickets/in-progress/0006-recovery-d311468.md",
+      "content": "# Recovery: Fix Failing Tests on Main Branch\n\n**Area:** recovery\n\nThe main branch tests are failing at commit d311468. Diagnose the failure from the test output below and fix the root cause. Keep the fix minimal and targeted.\n\n## Test Failure Output\n\nTest output unavailable (cached result). Run `make test` and `make integration-test` to reproduce the failure.\n\n**Worktree:** /mnt/steel-chest/Monolab/Home/racha/src/Typos/.scriptorium/worktrees/tickets/0006-recovery-d311468\n",
+      "contentHash": "D6DF481FD18C39CB59401B824A28535342957959"
+    }
+  ],
+  "commit_message": "scriptorium: assign ticket 0006-recovery-d311468"
+}
