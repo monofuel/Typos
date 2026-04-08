@@ -5,9 +5,9 @@ import
 
 
 const
-  OpenAiModel = "gpt-5.1-codex-mini"
-  OpenAiBaseUrl = "https://api.openai.com/v1"
-  OpenAiApiKeyEnvVar = "OPENAI_API_KEY"
+  BedrockModel = "anthropic.claude-sonnet-4-6"
+  BedrockBaseUrl = "https://bedrock-mantle.us-east-1.api.aws/v1"
+  BedrockApiEnvVar = "AWS_BEDROCK_TOKEN"
 
 
 proc makeTempDir(prefix: string): string =
@@ -44,15 +44,15 @@ proc makeCommit(dir: string, filename: string, content: string, message: string)
 
 
 proc requireApiKey(): string =
-  result = getEnv(OpenAiApiKeyEnvVar).strip()
+  result = getEnv(BedrockApiEnvVar).strip()
   if result.len == 0:
-    raise newException(ValueError, "OPENAI_API_KEY must be set for integration tests.")
+    raise newException(ValueError, "AWS_BEDROCK_TOKEN must be set for integration tests.")
 
 
 proc askWithReadTools(api: OpenAiApi, prompt: string): string =
   let tools = getTyposReadTools()
   var req = CreateResponseReq()
-  req.model = OpenAiModel
+  req.model = BedrockModel
   req.input = option(@[
     ResponseInput(
       `type`: "message",
@@ -82,7 +82,7 @@ proc askWithReadTools(api: OpenAiApi, prompt: string): string =
 proc askWithWriteTools(api: OpenAiApi, prompt: string): string =
   let tools = getTyposReadWriteTools()
   var req = CreateResponseReq()
-  req.model = OpenAiModel
+  req.model = BedrockModel
   req.input = option(@[
     ResponseInput(
       `type`: "message",
@@ -112,7 +112,7 @@ proc askWithWriteTools(api: OpenAiApi, prompt: string): string =
 suite "git tools agent integration":
   let apiKey = requireApiKey()
   let api = newOpenAiApi(
-    baseUrl = OpenAiBaseUrl,
+    baseUrl = BedrockBaseUrl,
     apiKey = apiKey
   )
 

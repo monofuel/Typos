@@ -5,7 +5,7 @@ import
 
 
 const
-  BedrockModel = "claude-sonnet-4-6"
+  BedrockModel = "anthropic.claude-sonnet-4-6"
   BedrockBaseUrl = "https://bedrock-mantle.us-east-1.api.aws/v1"
   BedrockApiEnvVar = "AWS_BEDROCK_TOKEN"
   PromptText = "Reply with exactly: claude-live-ok"

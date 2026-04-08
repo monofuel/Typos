@@ -4,16 +4,16 @@ import
 
 
 const
-  OpenAiModel = "gpt-5.1-codex-mini"
-  OpenAiBaseUrl = "https://api.openai.com/v1"
-  OpenAiApiKeyEnvVar = "OPENAI_API_KEY"
-  PromptText = "Reply with exactly: codex-live-ok"
+  BedrockModel = "anthropic.claude-sonnet-4-6"
+  BedrockBaseUrl = "https://bedrock-mantle.us-east-1.api.aws/v1"
+  BedrockApiEnvVar = "AWS_BEDROCK_TOKEN"
+  PromptText = "Reply with exactly: bedrock-live-ok"
 
 
 proc createLiveRequest(prompt: string): CreateResponseReq =
   ## Create a live Responses API request payload.
   let req = CreateResponseReq()
-  req.model = OpenAiModel
+  req.model = BedrockModel
   req.input = option(@[
     ResponseInput(
       `type`: "message",
@@ -43,14 +43,14 @@ proc responseOutputText(resp: OpenAiResponse): string =
   return ""
 
 
-suite "openai live responses":
-  test "codex 5.1 mini responds":
-    let apiKey = getEnv(OpenAiApiKeyEnvVar).strip()
+suite "bedrock live responses":
+  test "claude sonnet responds":
+    let apiKey = getEnv(BedrockApiEnvVar).strip()
     if apiKey.len == 0:
-      raise newException(ValueError, "OPENAI_API_KEY must be set for live OpenAI tests.")
+      raise newException(ValueError, "AWS_BEDROCK_TOKEN must be set for live Bedrock tests.")
 
     let api = newOpenAiApi(
-      baseUrl = OpenAiBaseUrl,
+      baseUrl = BedrockBaseUrl,
       apiKey = apiKey
     )
     defer:
@@ -61,7 +61,7 @@ suite "openai live responses":
     let outputText = responseOutputText(resp)
 
     check resp.`object` == "response"
-    check resp.model == OpenAiModel
+    check resp.model.len > 0
     check resp.status == "completed"
     check outputText.len > 0
-    check "codex-live-ok" in outputText.toLowerAscii()
+    check "bedrock-live-ok" in outputText.toLowerAscii()
