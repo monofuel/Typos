@@ -1,0 +1,13 @@
+{
+  "operation": "enqueue 0005",
+  "timestamp": "2026-04-08T02:35:13Z",
+  "steps": [
+    {
+      "action": "write",
+      "path": "queue/merge/pending/0001-0005.md",
+      "content": "# Merge Queue Item\n\n**Ticket:** tickets/in-progress/0005-recovery-d311468.md\n**Ticket ID:** 0005\n**Branch:** scriptorium/ticket-0005\n**Worktree:** /mnt/steel-chest/Monolab/Home/racha/src/Typos/.scriptorium/worktrees/tickets/0005-recovery-d311468\n**Summary:** Tests at commit d311468 are already passing. The failures were fixed by subsequent commits on master: config.nims nimby package paths (91c9c25), Bedrock integration test migration (d1ca356, 0f3dbb2), and nimble TMPDIR fix with graceful test skipping (3e3a22d). Verified make test, make integration-test, and make build all exit 0.\n",
+      "contentHash": "3B8573B040EA0EE9B6F8586F3D4E4B2206590076"
+    }
+  ],
+  "commit_message": "scriptorium: enqueue merge request 0005"
+}
