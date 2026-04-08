@@ -5,16 +5,16 @@ import
 
 
 const
-  AnthropicModel = "claude-sonnet-4-6"
-  AnthropicBaseUrl = "https://api.anthropic.com/v1"
-  AnthropicApiKeyEnvVar = "ANTHROPIC_API_KEY"
+  BedrockModel = "claude-sonnet-4-6"
+  BedrockBaseUrl = "https://bedrock-mantle.us-east-1.api.aws/v1"
+  BedrockApiEnvVar = "AWS_BEDROCK_TOKEN"
   PromptText = "Reply with exactly: claude-live-ok"
 
 
 proc requireApiKey(): string =
-  result = getEnv(AnthropicApiKeyEnvVar).strip()
+  result = getEnv(BedrockApiEnvVar).strip()
   if result.len == 0:
-    raise newException(ValueError, "ANTHROPIC_API_KEY must be set for live Anthropic tests.")
+    raise newException(ValueError, "AWS_BEDROCK_TOKEN must be set for live Bedrock tests.")
 
 
 proc makeTempDir(prefix: string): string =
@@ -22,16 +22,16 @@ proc makeTempDir(prefix: string): string =
   createDir(result)
 
 
-suite "anthropic live messages":
+suite "bedrock live messages":
   let apiKey = requireApiKey()
   let api = newOpenAiApi(
-    baseUrl = AnthropicBaseUrl,
+    baseUrl = BedrockBaseUrl,
     apiKey = apiKey
   )
 
   test "claude sonnet responds":
     let req = CreateMessageReq()
-    req.model = AnthropicModel
+    req.model = BedrockModel
     req.max_tokens = 256
     req.messages = @[
       AnthropicMessage(
@@ -48,7 +48,7 @@ suite "anthropic live messages":
 
   test "claude sonnet streams":
     let req = CreateMessageReq()
-    req.model = AnthropicModel
+    req.model = BedrockModel
     req.max_tokens = 256
     req.messages = @[
       AnthropicMessage(
@@ -82,7 +82,7 @@ suite "anthropic live messages":
 
     let tools = getTyposReadTools()
     var req = CreateMessageReq()
-    req.model = AnthropicModel
+    req.model = BedrockModel
     req.max_tokens = 1024
     req.messages = @[
       AnthropicMessage(
@@ -98,7 +98,7 @@ suite "anthropic live messages":
 
   test "toMessageReq converts responses request":
     let responsesReq = CreateResponseReq()
-    responsesReq.model = AnthropicModel
+    responsesReq.model = BedrockModel
     responsesReq.input = option(@[
       ResponseInput(
         `type`: "message",
@@ -113,7 +113,7 @@ suite "anthropic live messages":
     ])
 
     let msgReq = toMessageReq(responsesReq)
-    check msgReq.model == AnthropicModel
+    check msgReq.model == BedrockModel
     check msgReq.messages.len == 1
     check msgReq.messages[0].role == "user"
 
