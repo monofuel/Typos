@@ -1,0 +1,13 @@
+{
+  "operation": "enqueue 0007",
+  "timestamp": "2026-04-08T19:34:29Z",
+  "steps": [
+    {
+      "action": "write",
+      "path": "queue/merge/pending/0001-0007.md",
+      "content": "# Merge Queue Item\n\n**Ticket:** tickets/in-progress/0007-recovery-b314219.md\n**Ticket ID:** 0007\n**Branch:** scriptorium/ticket-0007\n**Worktree:** /mnt/steel-chest/Monolab/Home/racha/src/Typos/.scriptorium/worktrees/tickets/0007-recovery-b314219\n**Summary:** The test failure at b314219 (\"cannot open file: chroma\") was already fixed by commit 91c9c25, which added nimby package path resolution to config.nims. The root cause was that config.nims did not walk ~/.nimby/pkgs to add --path entries for nimby-managed dependencies, so the Nim compiler could not find packages like chroma and bumpy. All tests pass (zero failures).\n",
+      "contentHash": "C8BE84F011499139881A7F8AEC157C0A2F596F6E"
+    }
+  ],
+  "commit_message": "scriptorium: enqueue merge request 0007"
+}
