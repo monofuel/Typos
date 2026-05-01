@@ -1,21 +1,23 @@
 import
   std/[json, options, os, strutils, times, unittest],
   openai_leap,
-  Typos/tools
+  Typos/[aws_credentials, tools]
 
 
 const
-  BedrockModel = "anthropic.claude-sonnet-4-6"
-  BedrockBaseUrl = "https://bedrock-mantle.us-east-1.api.aws/v1"
+  BedrockModel = "claude-sonnet-4-6"
+  BedrockBaseUrl = "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1"
   BedrockApiEnvVar = "AWS_BEDROCK_TOKEN"
   PromptText = "Reply with exactly: claude-live-ok"
 
 
 proc requireApiKey(): string =
-  ## Return the API key or exit gracefully when not set.
+  ## Return the API key or fall back to AWS CLI short-lived tokens.
   result = getEnv(BedrockApiEnvVar).strip()
+  if result.len == 0 and getEnv("AWS_PROFILE").len > 0:
+    result = getBedrockToken()
   if result.len == 0:
-    echo "Skipping: AWS_BEDROCK_TOKEN not set."
+    echo "Skipping: AWS_BEDROCK_TOKEN not set and no AWS_PROFILE available."
     quit(0)
 
 
@@ -30,6 +32,7 @@ suite "bedrock live messages":
     baseUrl = BedrockBaseUrl,
     apiKey = apiKey
   )
+  api.useBearerForMessages = true
 
   test "claude sonnet responds":
     let req = CreateMessageReq()

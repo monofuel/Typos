@@ -8,6 +8,7 @@ type
   TyposResponseStream* = ref object
     stream*: OpenAIResponseStream
     messageStream*: OpenAIStream  # Messages API stream (Anthropic)
+    bedrockStream*: BedrockStream  # Legacy Bedrock stream (SigV4)
     hasEmittedDelta*: bool
     bufferedResponse*: string
     emittedBuffered*: bool
@@ -16,6 +17,7 @@ type
 var
   apiClient: OpenAiApi
   activeConfig: ProviderConfig
+  bedrockCfg: BedrockConfig
 
 
 proc extractResponseText(resp: OpenAiResponse): string =
@@ -53,16 +55,27 @@ proc extractResponseText(responseNode: JsonNode): string =
                   return
 
 
-proc initClient*(config: ProviderConfig) =
+proc initClient*(config: ProviderConfig, region: string = BedrockDefaultRegion, awsProfile: string = "") =
   ## Initialize the OpenAI-compatible client for the configured provider.
-  let apiKey = if config.apiEnvVar.len > 0: getEnv(config.apiEnvVar) else: ""
-  let resolvedApiKey = if apiKey.len > 0: apiKey else: "not-needed-for-lm-studio"
+  if config.provider == ProviderBedrock:
+    bedrockCfg = BedrockConfig(region: region, profile: awsProfile)
+    if not apiClient.isNil:
+      apiClient.close()
+    apiClient = newOpenAiApi(apiKey = "bedrock-sigv4")
+    activeConfig = config
+    return
 
-  if config.provider != ProviderLmStudio and apiKey.len == 0:
-    raise newException(
-      ValueError,
-      "Missing required API key env var: " & config.apiEnvVar
-    )
+  var resolvedApiKey: string
+  if config.provider == ProviderLmStudio:
+    resolvedApiKey = "not-needed-for-lm-studio"
+  else:
+    let apiKey = if config.apiEnvVar.len > 0: getEnv(config.apiEnvVar) else: ""
+    if apiKey.len == 0:
+      raise newException(
+        ValueError,
+        "Missing required API key env var: " & config.apiEnvVar
+      )
+    resolvedApiKey = apiKey
 
   if not apiClient.isNil:
     apiClient.close()
@@ -87,7 +100,15 @@ proc sendMessage*(chatMessages: seq[ChatMessage]): TyposResponseStream =
   req.model = activeConfig.model
   req.input = option(toResponseInputs(chatMessages))
 
-  if activeConfig.provider.usesMessagesApi:
+  if activeConfig.provider.usesBedrockApi:
+    var msgReq = toMessageReq(req)
+    result = TyposResponseStream(
+      bedrockStream: streamBedrockMessage(apiClient, bedrockCfg, msgReq),
+      hasEmittedDelta: false,
+      bufferedResponse: "",
+      emittedBuffered: false
+    )
+  elif activeConfig.provider.usesMessagesApi:
     var msgReq = toMessageReq(req)
     result = TyposResponseStream(
       messageStream: apiClient.streamMessage(msgReq),
@@ -112,7 +133,11 @@ proc sendMessageWithTools*(chatMessages: seq[ChatMessage], tools: ResponseToolsT
   req.model = activeConfig.model
   req.input = option(toResponseInputs(chatMessages))
 
-  let bufferedResponse = if activeConfig.provider.usesMessagesApi:
+  let bufferedResponse = if activeConfig.provider.usesBedrockApi:
+    var msgReq = toMessageReq(req)
+    let resp = createBedrockMessageWithTools(apiClient, bedrockCfg, msgReq, tools)
+    messageText(resp)
+  elif activeConfig.provider.usesMessagesApi:
     var msgReq = toMessageReq(req)
     let resp = apiClient.createMessageWithTools(msgReq, tools)
     messageText(resp)
@@ -137,7 +162,11 @@ proc sendMessageWithReadTools*(chatMessages: seq[ChatMessage]): TyposResponseStr
   req.input = option(toResponseInputs(chatMessages))
   let tools = getTyposReadTools()
 
-  let bufferedResponse = if activeConfig.provider.usesMessagesApi:
+  let bufferedResponse = if activeConfig.provider.usesBedrockApi:
+    var msgReq = toMessageReq(req)
+    let resp = createBedrockMessageWithTools(apiClient, bedrockCfg, msgReq, tools)
+    messageText(resp)
+  elif activeConfig.provider.usesMessagesApi:
     var msgReq = toMessageReq(req)
     let resp = apiClient.createMessageWithTools(msgReq, tools)
     messageText(resp)
@@ -162,7 +191,11 @@ proc sendMessageWithReadWriteTools*(chatMessages: seq[ChatMessage]): TyposRespon
   req.input = option(toResponseInputs(chatMessages))
   let tools = getTyposReadWriteTools()
 
-  let bufferedResponse = if activeConfig.provider.usesMessagesApi:
+  let bufferedResponse = if activeConfig.provider.usesBedrockApi:
+    var msgReq = toMessageReq(req)
+    let resp = createBedrockMessageWithTools(apiClient, bedrockCfg, msgReq, tools)
+    messageText(resp)
+  elif activeConfig.provider.usesMessagesApi:
     var msgReq = toMessageReq(req)
     let resp = apiClient.createMessageWithTools(msgReq, tools)
     messageText(resp)
@@ -180,11 +213,29 @@ proc sendMessageWithReadWriteTools*(chatMessages: seq[ChatMessage]): TyposRespon
 
 proc getNextChunk*(stream: TyposResponseStream): Option[string] =
   ## Get the next text chunk from the streaming response.
-  if stream.stream.isNil and stream.messageStream.isNil:
-    # Buffered response path (tool calling results)
+  if stream.stream.isNil and stream.messageStream.isNil and stream.bedrockStream.isNil:
     if not stream.emittedBuffered and stream.bufferedResponse.len > 0:
       stream.emittedBuffered = true
       return option(stream.bufferedResponse)
+    return none(string)
+
+  if not stream.bedrockStream.isNil:
+    while true:
+      let eventOpt = nextBedrockMessageEvent(stream.bedrockStream)
+      if eventOpt.isNone:
+        return none(string)
+      let event = eventOpt.get()
+      if not event.hasKey("type") or event["type"].kind != JString:
+        continue
+      let eventType = event["type"].str
+      if eventType == "content_block_delta":
+        if event.hasKey("delta") and event["delta"].kind == JObject:
+          let delta = event["delta"]
+          if delta.hasKey("text") and delta["text"].kind == JString:
+            let text = delta["text"].str
+            if text.len > 0:
+              stream.hasEmittedDelta = true
+              return option(text)
     return none(string)
 
   if not stream.messageStream.isNil:

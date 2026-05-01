@@ -1,6 +1,7 @@
 import
   std/[options, os, strutils, unittest],
-  openai_leap
+  openai_leap,
+  Typos/aws_credentials
 
 
 const
@@ -45,9 +46,11 @@ proc responseOutputText(resp: OpenAiResponse): string =
 
 suite "bedrock live responses":
   test "claude sonnet responds":
-    let apiKey = getEnv(BedrockApiEnvVar).strip()
+    var apiKey = getEnv(BedrockApiEnvVar).strip()
+    if apiKey.len == 0 and getEnv("AWS_PROFILE").len > 0:
+      apiKey = getBedrockToken()
     if apiKey.len == 0:
-      echo "Skipping: AWS_BEDROCK_TOKEN not set."
+      echo "Skipping: AWS_BEDROCK_TOKEN not set and no AWS_PROFILE available."
       quit(0)
 
     let api = newOpenAiApi(

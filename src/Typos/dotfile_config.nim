@@ -8,6 +8,7 @@ type
     model*: string
     apiKeyEnv*: string
     baseUrl*: string
+    region*: string
     reasoningEffort*: string
 
   DotfileConfig* = object
@@ -33,6 +34,8 @@ proc parseDotfileConfig*(jsonStr: string): DotfileConfig =
         profile.apiKeyEnv = val["apiKeyEnv"].getStr
       if val.hasKey("baseUrl"):
         profile.baseUrl = val["baseUrl"].getStr
+      if val.hasKey("region"):
+        profile.region = val["region"].getStr
       if val.hasKey("reasoningEffort"):
         profile.reasoningEffort = val["reasoningEffort"].getStr
       result.profiles[key] = profile

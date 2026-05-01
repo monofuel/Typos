@@ -1,7 +1,7 @@
 import
   std/[options, os, strutils, times, unittest],
   openai_leap,
-  Typos/tools
+  Typos/[aws_credentials, tools]
 
 
 const
@@ -16,10 +16,12 @@ proc makeTempDir(prefix: string): string =
 
 
 proc requireApiKey(): string =
-  ## Return the API key or exit gracefully when not set.
+  ## Return the API key or fall back to AWS CLI short-lived tokens.
   result = getEnv(BedrockApiEnvVar).strip()
+  if result.len == 0 and getEnv("AWS_PROFILE").len > 0:
+    result = getBedrockToken()
   if result.len == 0:
-    echo "Skipping: AWS_BEDROCK_TOKEN not set."
+    echo "Skipping: AWS_BEDROCK_TOKEN not set and no AWS_PROFILE available."
     quit(0)
 
 

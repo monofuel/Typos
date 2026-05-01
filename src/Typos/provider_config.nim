@@ -56,8 +56,8 @@ proc defaultProviderConfig*(provider: ProviderKind): ProviderConfig =
     result = ProviderConfig(
       provider: ProviderBedrock,
       model: BedrockDefaultModel,
-      baseUrl: BedrockBaseUrl,
-      apiEnvVar: BedrockApiEnvVar
+      baseUrl: "",
+      apiEnvVar: ""
     )
   of ProviderAnthropic:
     result = ProviderConfig(
@@ -89,3 +89,7 @@ proc resolveProviderConfig*(
 proc usesMessagesApi*(provider: ProviderKind): bool =
   ## Returns true if this provider uses the Anthropic Messages API instead of the Responses API.
   provider == ProviderAnthropic
+
+proc usesBedrockApi*(provider: ProviderKind): bool =
+  ## Returns true if this provider uses the Legacy Bedrock API (SigV4 signed).
+  provider == ProviderBedrock

@@ -21,7 +21,8 @@ proc printBanner(config: ProviderConfig, toolMode: ToolMode) =
   echo "Typos CLI"
   echo &"Provider: {providerName(config.provider)}"
   echo &"Model: {config.model}"
-  echo &"Base URL: {config.baseUrl}"
+  if config.baseUrl.len > 0:
+    echo &"Base URL: {config.baseUrl}"
   if config.apiEnvVar.len > 0:
     echo &"API Env Var: {config.apiEnvVar}"
   echo &"Tool Mode: {toolModeName(toolMode)}"
@@ -108,10 +109,11 @@ proc runOneShot(
   toolMode: ToolMode,
   emitter: CliOutputEmitter,
   outputLastMessagePath: string,
+  region: string = BedrockDefaultRegion,
   extraTools: ResponseToolsTable = newResponseToolsTable()
 ) =
   ## Run a single prompt-response exchange and exit.
-  agents.responses_chat.initClient(config)
+  agents.responses_chat.initClient(config, region = region)
   emitter.emitStatus("ready")
 
   var chatMessages: seq[ChatMessage]
@@ -134,11 +136,12 @@ proc runRepl(
   toolMode: ToolMode,
   emitter: CliOutputEmitter,
   outputLastMessagePath: string,
+  region: string = BedrockDefaultRegion,
   extraTools: ResponseToolsTable = newResponseToolsTable()
 ) =
   ## Run interactive chat REPL mode.
   var chatMessages: seq[ChatMessage]
-  agents.responses_chat.initClient(config)
+  agents.responses_chat.initClient(config, region = region)
   emitter.emitStatus("ready")
   if emitter.wantsInteractiveText():
     printBanner(config, toolMode)
@@ -226,6 +229,7 @@ proc main() =
   let modelOverride = if cliConfig.model.len > 0: cliConfig.model elif profile.model.len > 0: profile.model else: ""
   let baseUrlOverride = if cliConfig.baseUrl.len > 0: cliConfig.baseUrl elif profile.baseUrl.len > 0: profile.baseUrl else: ""
   let apiEnvVarOverride = if cliConfig.apiEnvVar.len > 0: cliConfig.apiEnvVar elif profile.apiKeyEnv.len > 0: profile.apiKeyEnv else: ""
+  let regionOverride = if profile.region.len > 0: profile.region else: BedrockDefaultRegion
 
   let providerConfig = resolveProviderConfig(
     providerName,
@@ -252,7 +256,8 @@ proc main() =
       cliConfig.toolMode,
       emitter,
       cliConfig.outputLastMessagePath,
-      extraTools
+      region = regionOverride,
+      extraTools = extraTools
     )
   of InputModeRepl:
     runRepl(
@@ -260,7 +265,8 @@ proc main() =
       cliConfig.toolMode,
       emitter,
       cliConfig.outputLastMessagePath,
-      extraTools
+      region = regionOverride,
+      extraTools = extraTools
     )
 
 

@@ -51,15 +51,15 @@ const
   AnthropicProviderName* = "anthropic"
 
   OpenAiBaseUrl* = "https://api.openai.com/v1"
-  BedrockBaseUrl* = "https://bedrock-mantle.us-east-1.api.aws/v1"
   AnthropicBaseUrl* = "https://api.anthropic.com/v1"
   OpenAiApiEnvVar* = "OPENAI_API_KEY"
-  BedrockApiEnvVar* = "AWS_BEDROCK_TOKEN"
   AnthropicApiEnvVar* = "ANTHROPIC_API_KEY"
+
+  BedrockDefaultRegion* = "us-east-1"
 
   LmStudioDefaultModel* = "unsloth/qwen3-coder-30b-a3b-instruct"
   OpenAiDefaultModel* = "gpt-5.1-codex-mini"
-  BedrockDefaultModel* = "openai.gpt-oss-20b"
+  BedrockDefaultModel* = "us.anthropic.claude-opus-4-6-v1"
   AnthropicDefaultModel* = "claude-sonnet-4-6"
 
   # Background colors
