@@ -13,6 +13,11 @@ proc requireAwsProfile(): string =
   if result.len == 0:
     echo "Skipping: AWS_PROFILE not set."
     quit(0)
+  try:
+    discard loadAwsCredentials(result)
+  except IOError:
+    echo "Skipping: AWS_PROFILE set but credentials could not be loaded (aws CLI missing?)."
+    quit(0)
 
 
 proc makeTempDir(prefix: string): string =

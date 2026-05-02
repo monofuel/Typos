@@ -19,7 +19,11 @@ proc requireApiKey(): string =
   ## Return the API key or fall back to AWS CLI short-lived tokens.
   result = getEnv(BedrockApiEnvVar).strip()
   if result.len == 0 and getEnv("AWS_PROFILE").len > 0:
-    result = getBedrockToken()
+    try:
+      result = getBedrockToken()
+    except IOError:
+      echo "Skipping: AWS_PROFILE set but token generation failed (boto3 missing?)."
+      quit(0)
   if result.len == 0:
     echo "Skipping: AWS_BEDROCK_TOKEN not set and no AWS_PROFILE available."
     quit(0)

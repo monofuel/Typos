@@ -48,7 +48,11 @@ suite "bedrock live responses":
   test "claude sonnet responds":
     var apiKey = getEnv(BedrockApiEnvVar).strip()
     if apiKey.len == 0 and getEnv("AWS_PROFILE").len > 0:
-      apiKey = getBedrockToken()
+      try:
+        apiKey = getBedrockToken()
+      except IOError:
+        echo "Skipping: AWS_PROFILE set but token generation failed (boto3 missing?)."
+        quit(0)
     if apiKey.len == 0:
       echo "Skipping: AWS_BEDROCK_TOKEN not set and no AWS_PROFILE available."
       quit(0)
